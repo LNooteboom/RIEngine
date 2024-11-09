@@ -15,7 +15,7 @@ target_include_directories(${ENGINE_NAME} PUBLIC include)
 
 # Engine core
 if (WINDOWS)
-	file (COPY win/bin/SDL2.dll win/bin/SDL2_ttf.dll win/bin/SDL2_mixer.dll win/bin/libogg-0.dll win/bin/glew32.dll DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+	file (COPY win/bin/SDL2.dll win/bin/SDL2_ttf.dll win/bin/SDL2_mixer.dll win/bin/libogg-0.dll win/bin/glew32.dll DESTINATION ${CMAKE_BINARY_DIR})
 
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 
@@ -76,8 +76,8 @@ endif()
 # HLSL
 set(FXC_VS fxc /nologo /Vi /T vs_4_0)
 set(FXC_PS fxc /nologo /Vi /T ps_4_0)
-set(HLSL_IN_DIR "${CMAKE_SOURCE_DIR}/shaders/hlsl")
-set(HLSL_OUT_DIR "${CMAKE_SOURCE_DIR}/shaders")
+set(HLSL_IN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders/hlsl")
+set(HLSL_OUT_DIR "${CMAKE_BINARY_DIR}/dat/shaders")
 
 add_custom_command(OUTPUT "${HLSL_OUT_DIR}/std_vs.cso" COMMAND ${FXC_VS} /E stdvs_main /Fo ${HLSL_OUT_DIR}/std_vs.cso ${HLSL_IN_DIR}/vertex.hlsl DEPENDS "${HLSL_IN_DIR}/vertex.hlsl")
 add_custom_command(OUTPUT "${HLSL_OUT_DIR}/anim_vs.cso" COMMAND ${FXC_VS} /E stdvs_anim_main /Fo ${HLSL_OUT_DIR}/anim_vs.cso ${HLSL_IN_DIR}/vertex.hlsl DEPENDS "${HLSL_IN_DIR}/vertex.hlsl")
