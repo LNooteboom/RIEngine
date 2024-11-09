@@ -1,0 +1,9 @@
+*.d
+.*/
+
+out/
+
+compile_commands.json
+
+*.ich
+*.cso
