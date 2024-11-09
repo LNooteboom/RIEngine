@@ -44,6 +44,8 @@ void assetSeek(struct Asset *a, long offset, int whence) {
 }
 
 void assetClose(struct Asset *a) {
+	if (!a)
+		return;
 	SDL_RWclose(a->rwOps);
 	globalDealloc(a->buffer);
 	globalDealloc(a);

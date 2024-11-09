@@ -560,6 +560,11 @@ void drawInit(void) {
 	drawDriverInit();
 	HTCreate(&modelTable, 128);
 
+	rttW = rttIntW = winW = realWinW;
+	rttH = rttIntH = winH = realWinH;
+	rttX = 0;
+	rttY = winH / 2;
+
 	anim3DInit();
 	drawVmInit();
 	ttfInit();
