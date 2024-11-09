@@ -35,7 +35,7 @@ int runEngine(void) {
 
 	/* Get game folders */
 	gameDir = SDL_GetBasePath();
-	gameUserDir = SDL_GetPrefPath(NULL, "DreamingMemories");
+	gameUserDir = SDL_GetPrefPath(NULL, gameDirName);
 	logDebug("Game directories: %s, %s\n", gameDir, gameUserDir);
 
 	assetInit();
