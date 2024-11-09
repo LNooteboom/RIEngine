@@ -21,32 +21,6 @@ extern "C" {
 #define UPDATE_UI		3
 #define NROF_UPDATES	4
 
-enum GamepadAxis {
-	GP_AXIS_L_X,
-	GP_AXIS_L_Y,
-	GP_AXIS_R_X,
-	GP_AXIS_R_Y,
-	GP_AXIS_TRIG_L,
-	GP_AXIS_TRIG_R
-};
-enum GamepadButton {
-	GP_BUTTON_INVALID = -1,
-	GP_BUTTON_A,
-	GP_BUTTON_B,
-	GP_BUTTON_X,
-	GP_BUTTON_Y,
-	GP_BUTTON_SHOULDER_L,
-	GP_BUTTON_SHOULDER_R,
-	GP_BUTTON_DPAD_UP,
-	GP_BUTTON_DPAD_DOWN,
-	GP_BUTTON_DPAD_LEFT,
-	GP_BUTTON_DPAD_RIGHT,
-	GP_BUTTON_STICK_L,
-	GP_BUTTON_STICK_R,
-	GP_BUTTON_START,
-	GP_BUTTON_SELECT,
-};
-
 /**
  * type: one of EVENT_KEY, EVENT_MOUSEBTN etc
  * param:
@@ -79,14 +53,7 @@ extern struct UpdateTiming updateTiming;
 extern bool eventBlockUpdates;
 extern float gameSpeed;
 
-extern bool gamepadConnected;
-
 extern const char *sceneName;
-
-void getMousePos(float *x, float *y);
-
-float getGamepadAxis(enum GamepadAxis ax);
-
 
 /**
  * Add an update function

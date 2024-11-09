@@ -46,6 +46,7 @@ int runEngine(void) {
 
 	/* Initialize event system */
 	eventInit();
+	inputInit();
 
 	/* Load modules */
 	basicsInit();
@@ -73,6 +74,7 @@ int runEngine(void) {
 	ichigoHeapFini();
 	basicsFini();
 
+	inputFini();
 	eventFini();
 
 	assetArchive(0, NULL);

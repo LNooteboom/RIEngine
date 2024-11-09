@@ -7,6 +7,7 @@ target_sources(${ENGINE_NAME}
 	assets.c
 	basics.c
 	mem.c
+	input.c
 )
 
 add_subdirectory(gfx)

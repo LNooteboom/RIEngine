@@ -26,4 +26,10 @@ void eventStartScene(void);
  */
 void eventEndScene(void);
 
+void inputInit(void);
+
+void inputFini(void);
+
+bool inputHandleEvent(struct Event *event, void *sdlEvent);
+
 #endif
