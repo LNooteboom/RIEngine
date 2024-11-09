@@ -78,6 +78,7 @@ void drawRotateX(float r) {
 	m.m[9] = -s;
 	m.m[10] = c;
 	drawState.matStack[drawState.matStackIdx] = drawState.matStack[drawState.matStackIdx] * m;
+	drawState.normMatValid = false;
 }
 void drawRotateY(float r) {
 	if (drawState.drawPhase <= DP_3D_NO_CULL)
@@ -89,6 +90,7 @@ void drawRotateY(float r) {
 	m.m[8] = s;
 	m.m[10] = c;
 	drawState.matStack[drawState.matStackIdx] = drawState.matStack[drawState.matStackIdx] * m;
+	drawState.normMatValid = false;
 }
 void drawRotateZ(float r) {
 	if (drawState.drawPhase <= DP_3D_NO_CULL)
@@ -100,6 +102,7 @@ void drawRotateZ(float r) {
 	m.m[4] = -s;
 	m.m[5] = c;
 	drawState.matStack[drawState.matStackIdx] = drawState.matStack[drawState.matStackIdx] * m;
+	drawState.normMatValid = false;
 }
 void drawRotateXYZ(float rx, float ry, float rz) {
 	float r[3];
@@ -113,20 +116,24 @@ void drawRotateXYZ(float rx, float ry, float rz) {
 		r[2] = rz;
 	}
 	drawState.matStack[drawState.matStackIdx].rotate(Vec4::eulerAngles(r[0], r[1], r[2]));
+	drawState.normMatValid = false;
 }
 
 void drawScale3D(float sx, float sy, float sz) {
 	drawState.matStack[drawState.matStackIdx].scale(Vec3{ sx, sy, sz });
+	drawState.normMatValid = false;
 }
 
 void drawTransform(struct Transform *tf) {
 	drawState.matStack[drawState.matStackIdx] = Mat::fromTranslation(Vec3::fromTfPos(*tf));
+	drawState.normMatValid = false;
 
 }
 void drawTransformRounded(struct Transform *tf) {
 	Vec3 v = Vec3::fromTfPos(*tf);
 	v.round();
 	drawState.matStack[drawState.matStackIdx] = Mat::fromTranslation(v);
+	drawState.normMatValid = false;
 
 }
 void drawTransformRotation(struct Transform *tf) {
@@ -143,20 +150,24 @@ void drawTransformRotation(struct Transform *tf) {
 		m.m[5] = tf->rotReal;
 	}
 	drawState.matStack[drawState.matStackIdx] = drawState.matStack[drawState.matStackIdx] * m;
+	drawState.normMatValid = false;
 }
 void drawTransform3D(struct Transform *tf) {
 	drawState.matStack[drawState.matStackIdx] = Mat::fromTranslation(Vec3::fromTfPos(*tf));
 	drawState.matStack[drawState.matStackIdx].rotate(Vec4::fromTfRot(*tf));
+	drawState.normMatValid = false;
 }
 
 void drawMatIdentity(void) {
 	drawState.matStack[drawState.matStackIdx] = Mat{ 1.0f };
+	drawState.normMatValid = false;
 }
 
 void drawSetMatrix(float *mat) {
 	for (int i = 0; i < 16; i++) {
 		drawState.matStack[drawState.matStackIdx].m[i] = mat[i];
 	}
+	drawState.normMatValid = false;
 }
 
 void drawPushMat(void) {
@@ -165,6 +176,7 @@ void drawPushMat(void) {
 }
 void drawPopMat(void) {
 	drawState.matStackIdx -= 1;
+	drawState.normMatValid = false;
 }
 
 

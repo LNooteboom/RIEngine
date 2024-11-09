@@ -261,12 +261,12 @@ static void doGamma(float *r, float *g, float *b) {
 
 static void copyLight(StdConstantPSLight *dest, Light *l, bool point) {
 	if (point) {
-		Vec4 v = Mat{ cam3DMatrix.m } *Vec4{ l->x, l->y, l->z, 1 };
+		Vec4 v = Mat{ cam3DMatrix.m } * Vec4{ l->x, l->y, l->z, 1 };
 		dest->pos[0] = v.x;
 		dest->pos[1] = v.y;
 		dest->pos[2] = v.z;
 	} else {
-		Vec4 v = Mat{ cam3DMatrix.m } *Vec4{ l->x, l->y, l->z, 0 };
+		Vec4 v = Mat{ cam3DMatrix.m } * Vec4{ l->x, l->y, l->z, 0 };
 		dest->pos[0] = v.x;
 		dest->pos[1] = v.y;
 		dest->pos[2] = v.z;
@@ -555,6 +555,13 @@ void drawSetAnimUbo(void *data, size_t dataSize) {
 	deviceContext->VSSetConstantBuffers(1, 1, &stdConstantVSAnimBuffer);
 }
 
+static void setNormMat(void) {
+	drawState.normMat = drawState.matStack[drawState.matStackIdx];
+	drawState.normMat.inverse3();
+	drawState.normMat = drawState.normMat.transposed();
+	drawState.normMatValid = true;
+}
+
 static void drawSetConstants(Mat *model) {
 	D3D11_MAPPED_SUBRESOURCE stdConstantVSMappedBuffer;
 	deviceContext->Map(stdConstantVSBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &stdConstantVSMappedBuffer);
@@ -577,24 +584,26 @@ static void drawSetConstants(Mat *model) {
 		if (drawState.drawPhase <= DP_3D_NO_CULL) {
 			view = &cam3DMatrix;
 			cvs->projection = proj3DMat;
-			cvs->normMat = identMat;
+			
 		} else if (drawState.drawPhase == DP_BACKBUFFER) {
 			view = &cam2DUiMat;
 			cvs->projection = identMat;
-			cvs->normMat = identMat;
 		} else if (drawState.drawPhase == DP_3D_OVERLAY) {
 			view = &cam3DOvMat;
 			cvs->projection = identMat;
-			cvs->normMat = identMat;
 		} else {
 			view = &cam2DMat;
 			cvs->projection = identMat;
-			cvs->normMat = identMat;
 		}
 		if (model) {
 			cvs->modelView = *view * *model;
+			if (!drawState.normMatValid) {
+				setNormMat();
+			}
+			cvs->normMat = *view * drawState.normMat;
 		} else {
 			cvs->modelView = *view;
+			cvs->normMat = *view;
 		}
 	}
 
@@ -681,12 +690,23 @@ void drawPreflush(int nverts, int nindices) {
 }
 
 
-void drawVertex(float x, float y, float z, float u, float v, float r, float g, float b, float a) {
+
+
+void drawVertex3D(float x, float y, float z, float nx, float ny, float nz, float u, float v, float r, float g, float b, float a) {
 	drawPrepare();
 
 	int maxVerts = VBO_MAXSZ / sizeof(struct StdVboColor);
 	if (curNVerts == maxVerts)
 		return;
+
+	Vec4 norm{ nx, ny, nz, 0 };
+	if (drawState.drawPhase <= DP_3D_OVERLAY) {
+		doGamma(&r, &g, &b);
+		if (!drawState.normMatValid) {
+			setNormMat();
+		}
+		norm = drawState.normMat * norm;
+	}
 
 	Vec4 pos = drawState.matStack[drawState.matStackIdx] * Vec4{ x, y, z, 1 };
 
@@ -694,9 +714,9 @@ void drawVertex(float x, float y, float z, float u, float v, float r, float g, f
 	d->s.x = pos.x;
 	d->s.y = pos.y;
 	d->s.z = pos.z;
-	d->s.nx = 0;
-	d->s.ny = 0;
-	d->s.nz = 1;
+	d->s.nx = norm.x;
+	d->s.ny = norm.y;
+	d->s.nz = norm.z;
 
 	if (drawState.uvModelMat && drawState.tex[0].tex) {
 		d->s.u = pos.x / drawState.tex[0].tex->w + drawState.srcX;
@@ -708,8 +728,7 @@ void drawVertex(float x, float y, float z, float u, float v, float r, float g, f
 		d->s.v = v;
 	}
 
-	if (drawState.drawPhase <= DP_3D_OVERLAY)
-		doGamma(&r, &g, &b);
+	
 	d->r = r;
 	d->g = g;
 	d->b = b;

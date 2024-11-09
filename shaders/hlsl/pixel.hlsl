@@ -59,7 +59,7 @@ float4 std2d_main(ps_in input) : SV_TARGET
 float3 calc_dir_light(ps_light light, float3 normal)
 {
     float3 light_dir = normalize(light.pos);
-    float3 diffuse = light.diffuse * max(0, dot(normal, light_dir));
+    float3 diffuse = light.diffuse * max(0, dot(normalize(normal), light_dir));
     return light.ambient + diffuse;
 }
 

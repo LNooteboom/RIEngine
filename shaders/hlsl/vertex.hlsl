@@ -49,7 +49,7 @@ vs_out stdvs_main(vs_in input)
     float4 pos = mul(model_view, float4(input.position, 1.0));
     output.projPos = mul(projection, pos);
     output.viewPos = pos.xyz;
-    output.normal = mul(norm, float4(input.normal, 1.0)).xyz;
+    output.normal = mul(norm, float4(input.normal, 0.0)).xyz;
     output.uv = input.uv;
     output.color = input.color;
 

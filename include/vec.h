@@ -319,7 +319,6 @@ public:
 	}
 
 	void inverse3() {
-		Mat ret;
 		float det;
 		float a = m[0 * 4 + 0], b = m[0 * 4 + 1], c = m[0 * 4 + 2],
 			d = m[1 * 4 + 0], e = m[1 * 4 + 1], f = m[1 * 4 + 2],

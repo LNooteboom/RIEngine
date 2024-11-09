@@ -127,6 +127,9 @@ struct DwState {
 	Mat matStack[16];
 	int matStackIdx;
 
+	Mat normMat;
+	bool normMatValid;
+
 	struct Shader *shader;
 
 	enum BlendMode blend;
@@ -247,7 +250,10 @@ void drawWireframe(bool wf);
  * DRAWING
  */
 void drawPreflush(int nverts, int nindices);
-void drawVertex(float x, float y, float z, float u, float v, float r, float g, float b, float a);
+void drawVertex3D(float x, float y, float z, float nx, float ny, float nz, float u, float v, float r, float g, float b, float a);
+static inline void drawVertex(float x, float y, float z, float u, float v, float r, float g, float b, float a) {
+	drawVertex3D(x, y, z, 0, 0, 1, u, v, r, g, b, a);
+}
 
 void drawIndices(int verts, int n, const unsigned int *lst);
 
