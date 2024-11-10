@@ -38,7 +38,7 @@ static bool AssertFailedImpl(const char *inExpression, const char *inMessage, co
 /// Class that determines if two object layers can collide
 class ObjectLayerPairFilterImpl : public ObjectLayerPairFilter {
 public:
-	virtual bool					ShouldCollide(ObjectLayer inObject1, ObjectLayer inObject2) const override {
+	virtual bool ShouldCollide(ObjectLayer inObject1, ObjectLayer inObject2) const override {
 		switch (inObject1) {
 		case Layers::NON_MOVING:
 			return inObject2 == Layers::MOVING; // Non moving only collides with moving
@@ -61,11 +61,11 @@ public:
 		mObjectToBroadPhase[Layers::MOVING] = BroadPhaseLayers::MOVING;
 	}
 
-	virtual uint					GetNumBroadPhaseLayers() const override {
+	virtual uint GetNumBroadPhaseLayers() const override {
 		return BroadPhaseLayers::NUM_LAYERS;
 	}
 
-	virtual BroadPhaseLayer			GetBroadPhaseLayer(ObjectLayer inLayer) const override {
+	virtual BroadPhaseLayer GetBroadPhaseLayer(ObjectLayer inLayer) const override {
 		JPH_ASSERT(inLayer < Layers::NUM_LAYERS);
 		return mObjectToBroadPhase[inLayer];
 	}
@@ -177,6 +177,7 @@ class MyDebugRenderer : public DebugRenderer {
 public:
 	MyDebugRenderer() {
 		tex = loadTexture("tex/White.png");
+		Initialize();
 	}
 
 	virtual void DrawLine(RVec3Arg inFrom, RVec3Arg inTo, ColorArg inColor) {
@@ -263,6 +264,7 @@ public:
 		MyDebugRenderer *r = static_cast<MyDebugRenderer *>(arg);
 		drawReset();
 		BodyManager::DrawSettings settings;
+		settings.mDrawShapeWireframe = true;
 		physicsSystem->DrawBodies(settings, r);
 	}
 

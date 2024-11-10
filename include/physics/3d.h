@@ -32,6 +32,8 @@ struct PhysCharacter {
 	enum PhysCharacterGroundState groundState;
 	float groundNormX, groundNormY, groundNormZ;
 
+	bool isVirtual;
+
 	void *joltCharacter;
 };
 
@@ -50,7 +52,9 @@ void physAddBody(struct PhysBody *b);
 void physRemoveBody(struct PhysBody *b);
 
 void physNewCharacter(struct PhysCharacter *ch, float radius, float halfHeight, float friction);
+void physNewCharacterVirtual(struct PhysCharacter *ch, float radius, float halfHeight);
 void physDeleteCharacter(struct PhysCharacter *ch);
+
 void physCharacterGetVelocity(struct PhysCharacter *ch, float *vel);
 void physCharacterSetVelocity(struct PhysCharacter *ch, float *vel);
 void physCharacterGetPosition(struct PhysCharacter *ch, float *pos);
