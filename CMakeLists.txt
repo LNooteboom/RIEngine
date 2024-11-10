@@ -56,7 +56,6 @@ target_link_libraries(${OUTPUT_NAME} ${ENGINE_NAME})
 
 # Jolt
 include (src/physics/jolt.cmake)
-target_sources(${ENGINE_NAME} PRIVATE src/physics/jolt.cpp)
 target_link_libraries(${ENGINE_NAME} Jolt)
 add_compile_definitions("JOLT")
 

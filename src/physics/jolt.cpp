@@ -5,45 +5,9 @@
 #include <gfx/draw.h> // for model files and debug render
 #include <events.h>
 
-// The Jolt headers don't include Jolt.h. Always include Jolt.h before including any other Jolt header.
-// You can use Jolt.h in your precompiled header to speed up compilation.
-#include <Jolt/Jolt.h>
-
-// Jolt includes
-#include <Jolt/RegisterTypes.h>
-#include <Jolt/Core/Factory.h>
-#include <Jolt/Core/TempAllocator.h>
-#include <Jolt/Core/JobSystemThreadPool.h>
-#include <Jolt/Physics/PhysicsSettings.h>
-#include <Jolt/Physics/PhysicsSystem.h>
-#include <Jolt/Physics/Collision/Shape/BoxShape.h>
-#include <Jolt/Physics/Collision/Shape/SphereShape.h>
-#include <Jolt/Physics/Body/BodyCreationSettings.h>
-#include <Jolt/Physics/Body/BodyActivationListener.h>
-#include <Jolt/Physics/Character/Character.h>
-#include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
-#include <Jolt/Physics/Collision/Shape/CylinderShape.h>
-#include <Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h>
-#include <Jolt/Physics/Collision/Shape/BoxShape.h>
-#include <Jolt/Physics/Collision/Shape/SphereShape.h>
-#include <Jolt/Physics/Collision/Shape/MeshShape.h>
-
-// STL includes
-#include <iostream>
-#include <cstdarg>
-#include <thread>
-
-// Disable common warnings triggered by Jolt, you can use JPH_SUPPRESS_WARNING_PUSH / JPH_SUPPRESS_WARNING_POP to store and restore the warning state
-JPH_SUPPRESS_WARNINGS
-
-// All Jolt symbols are in the JPH namespace
-using namespace JPH;
-// If you want your code to compile using single or double precision write 0.0_r to get a Real value that compiles to double or float depending if JPH_DOUBLE_PRECISION is set or not.
-using namespace JPH::literals;
-
 #define DRAW_PHYS_DEBUG 499
 
-namespace physics {
+using namespace JPH;
 
 // Callback for traces, connect this to your own trace function if you have one
 static void TraceImpl(const char *inFMT, ...) {
@@ -71,16 +35,6 @@ static bool AssertFailedImpl(const char *inExpression, const char *inMessage, co
 
 #endif // JPH_ENABLE_ASSERTS
 
-// Layer that objects can be in, determines which other objects it can collide with
-// Typically you at least want to have 1 layer for moving bodies and 1 layer for static bodies, but you can have more
-// layers if you want. E.g. you could have a layer for high detail collision (which is not used by the physics simulation
-// but only if you do collision testing).
-namespace Layers {
-	static constexpr ObjectLayer NON_MOVING = 0;
-	static constexpr ObjectLayer MOVING = 1;
-	static constexpr ObjectLayer NUM_LAYERS = 2;
-};
-
 /// Class that determines if two object layers can collide
 class ObjectLayerPairFilterImpl : public ObjectLayerPairFilter {
 public:
@@ -95,17 +49,6 @@ public:
 			return false;
 		}
 	}
-};
-
-// Each broadphase layer results in a separate bounding volume tree in the broad phase. You at least want to have
-// a layer for non-moving and moving objects to avoid having to update a tree full of static objects every frame.
-// You can have a 1-on-1 mapping between object layers and broadphase layers (like in this case) but if you have
-// many object layers you'll be creating many broad phase trees, which is not efficient. If you want to fine tune
-// your broadphase layers define JPH_TRACK_BROADPHASE_STATS and look at the stats reported on the TTY.
-namespace BroadPhaseLayers {
-	static constexpr BroadPhaseLayer NON_MOVING(0);
-	static constexpr BroadPhaseLayer MOVING(1);
-	static constexpr uint NUM_LAYERS(2);
 };
 
 // BroadPhaseLayerInterface implementation
@@ -193,6 +136,7 @@ public:
 	}
 };
 
+
 TempAllocatorImpl *tempAllocator;
 PhysicsSystem *physicsSystem;
 JobSystemThreadPool *jobSystem;
@@ -201,6 +145,7 @@ ObjectVsBroadPhaseLayerFilterImpl *objectVsBroadPhaseLayerFilterImpl;
 ObjectLayerPairFilterImpl *objectLayerPairFilterImpl;
 MyBodyActivationListener *myBodyActivationListener;
 MyContactListener *myContactListener;
+
 
 #ifndef RELEASE
 
@@ -327,247 +272,6 @@ private:
 MyDebugRenderer *renderer;
 #endif
 
-inline PhysBody *getBody(entity_t entity) {
-	return &PHYS_BODIES[entity];
-}
-inline PhysBody *addBody(entity_t entity) {
-	return &PHYS_BODIES.add(entity);
-}
-inline Transform *getTf(entity_t entity) {
-	//return static_cast<Transform *>(getComponent(TRANSFORM, entity));
-	return &TRANSFORMS[entity];
-}
-inline BodyID getJBody(PhysBody *pb) {
-	return BodyID{ pb->joltBody };
-}
-inline entity_t getEntity(Body *b) {
-	return static_cast<entity_t>(b->GetUserData());
-}
-void newBody(struct PhysBody *b, Ref<Shape> ss) {
-	if (b->flags & PHYS_HAS_BODY) {
-		physDeleteBody(b);
-	}
-
-	struct Transform *tf = getTf(b->entity);
-	EMotionType motionType;
-	ObjectLayer objectLayer;
-	if (b->flags & PHYS_KINEMATIC) {
-		motionType = EMotionType::Kinematic;
-		objectLayer = Layers::MOVING;
-	} else if (b->flags & PHYS_MOVING) {
-		motionType = EMotionType::Dynamic;
-		objectLayer = Layers::MOVING;
-	} else {
-		motionType = EMotionType::Static;
-		objectLayer = Layers::NON_MOVING;
-	}
-	BodyCreationSettings bcs{ ss, RVec3{tf->x, tf->y, tf->z}, Quat{tf->rx, tf->ry, tf->rz, tf->rw}, motionType, objectLayer };
-	Body *body{ physicsSystem->GetBodyInterface().CreateBody(bcs) };
-	body->SetUserData(b->entity);
-	b->joltBody = body->GetID().GetIndexAndSequenceNumber();
-	b->flags |= PHYS_HAS_BODY;
-}
-
-
-void physBodyNotifier(void *arg, void *component, int type) {
-	if (type == NOTIFY_DELETE) {
-		PhysBody *b = static_cast<PhysBody *>(component);
-		if (b->flags & PHYS_HAS_BODY) {
-			physicsSystem->GetBodyInterface().DestroyBody(getJBody(b));
-		}
-	} else if (type == NOTIFY_PURGE) {
-		int maxBodies = clCount(PHYS_BODY);
-		BodyInterface &bi = physicsSystem->GetBodyInterface();
-		if (maxBodies) {
-			BodyID *bodies = new BodyID[maxBodies];
-			BodyID *activeBodies = new BodyID[maxBodies];
-			int bodiesCnt = 0;
-			int activeCnt = 0;
-			for (PhysBody *b = static_cast<PhysBody *>(clBegin(PHYS_BODY)); b; b = static_cast<PhysBody *>(clNext(PHYS_BODY, b))) {
-				if (b->flags & PHYS_HAS_BODY) {
-					BodyID id{ b->joltBody };
-					bodies[bodiesCnt] = id;
-					++bodiesCnt;
-
-					if (bi.IsAdded(id)) {
-						activeBodies[activeCnt] = id;
-						++activeCnt;
-					}
-				}
-			}
-
-			if (activeCnt) {
-				bi.RemoveBodies(activeBodies, activeCnt);
-			}
-			if (bodiesCnt) {
-				bi.DestroyBodies(bodies, bodiesCnt);
-			}
-			delete activeBodies;
-			delete bodies;
-		}
-	}
-}
-void physCharacterNotifier(void *arg, void *component, int type) {
-	if (type == NOTIFY_DELETE) {
-		PhysCharacter *ch = static_cast<PhysCharacter *>(component);
-		if (ch->joltCharacter) {
-			Character *c = static_cast<Character *>(ch->joltCharacter);
-			c->RemoveFromPhysicsSystem();
-			delete c;
-		}
-	} else if (type == NOTIFY_PURGE) {
-		for (PhysCharacter *ch = static_cast<PhysCharacter *>(clBegin(PHYS_CHARACTER)); ch; ch = static_cast<PhysCharacter *>(clNext(PHYS_CHARACTER, ch))) {
-			if (ch->joltCharacter) {
-				Character *c = static_cast<Character *>(ch->joltCharacter);
-				c->RemoveFromPhysicsSystem();
-				delete c;
-			}
-		}
-	}
-}
-
-} // Namespace physics
-using namespace physics;
-
-
-// C Interface
-
-
-void physNewBodyBox(struct PhysBody *b, float *halfSize, struct PhysMaterial *mat) {
-	BoxShapeSettings ss{ RVec3{halfSize[0], halfSize[1], halfSize[2]} };
-	newBody(b, ss.Create().Get());
-}
-
-void physNewBodyMesh(struct PhysBody *b, const char *meshFile, const char *meshName) {
-	static const char *mfCorrupt = "Collision mesh file is corrupted: %s\n";
-	struct Asset *a = assetOpen(meshFile);
-	if (!a) {
-		fail("Failed to open coll mesh file %s\n", meshFile);
-		return;
-	}
-
-	struct ModelFileHeader header;
-	if (assetRead(a, &header, sizeof(header)) != sizeof(header)) {
-		fail(mfCorrupt, meshFile);
-		return;
-	}
-	if (memcmp(&header.sig, "MES0", 4) || header.nEntries == 0) {
-		fail(mfCorrupt, meshFile);
-		return;
-	}
-
-	struct ModelFileEntry mfe;
-	size_t vPitch, vSize, iSize;
-	bool found = false;
-	for (unsigned int i = 0; i < header.nEntries; i++) {
-		if (assetRead(a, &mfe, sizeof(mfe)) != sizeof(mfe)) {
-			fail(mfCorrupt, meshFile);
-			return;
-		}
-		vPitch = mfe.flags & MODEL_FILE_ANIM ? 52 : 48;
-		vSize = vPitch * mfe.nVertices;
-		iSize = mfe.nTriangles * 3 * 4;
-		if (!strcmp(meshName, mfe.name)) {
-			found = true;
-			break;
-		}
-		assetSeek(a, (long)(vSize + iSize), ASSET_CUR);
-	}
-	if (!found) {
-		logNorm("Could not find coll mesh %s in %s\n", meshName, meshFile);
-		return;
-	}
-
-	VertexList verts;
-	for (unsigned int i = 0; i < mfe.nVertices; i++) {
-		float cv[3];
-		assetRead(a, cv, sizeof(cv));
-		assetSeek(a, (long)(vPitch - sizeof(cv)), ASSET_CUR);
-		verts.push_back({ cv[0], cv[1], cv[2] });
-	}
-	IndexedTriangleList indices;
-	for (unsigned int i = 0; i < mfe.nTriangles; i++) {
-		uint32_t idx[3];
-		assetRead(a, idx, sizeof(idx));
-		indices.push_back({ idx[0], idx[1], idx[2], 0 });
-	}
-
-	assetClose(a);
-
-	MeshShapeSettings ms{ verts, indices};
-	ms.Sanitize();
-	newBody(b, ms.Create().Get());
-}
-void physNewBodySphere(struct PhysBody *b, float radius, struct PhysMaterial *mat) {
-	SphereShapeSettings set{ radius };
-	newBody(b, set.Create().Get());
-}
-void physNewBodyCapsule(struct PhysBody *b, float halfZ, float radius, struct PhysMaterial *mat) {
-	CapsuleShapeSettings set{ halfZ, radius };
-	newBody(b, set.Create().Get());
-}
-void physNewBodyCylinder(struct PhysBody *b, float halfZ, float radius, struct PhysMaterial *mat) {
-	CylinderShapeSettings set{ halfZ, radius };
-	newBody(b, set.Create().Get());
-}
-
-void physDeleteBody(struct PhysBody *b) {
-	physicsSystem->GetBodyInterface().DestroyBody(getJBody(b));
-	b->flags &= ~(PHYS_HAS_BODY);
-}
-void physAddBody(struct PhysBody *b) {
-	physicsSystem->GetBodyInterface().AddBody(getJBody(b), EActivation::Activate);
-}
-void physRemoveBody(struct PhysBody *b) {
-	physicsSystem->GetBodyInterface().RemoveBody(getJBody(b));
-}
-
-
-// Character
-void physNewCharacter(struct PhysCharacter *ch, float radius, float halfHeight, float friction) {
-	Transform *tf = getTf(ch->entity);
-	// Create 'player' character
-	Ref<CharacterSettings> settings = new CharacterSettings();
-	RefConst<Shape> shape = RotatedTranslatedShapeSettings(JPH::Vec3(0, 0, halfHeight + radius), Quat::sEulerAngles(JPH::Vec3{DEG2RAD(-90), 0, 0}), new CapsuleShape(halfHeight, radius)).Create().Get();
-	settings->mMaxSlopeAngle = DEG2RAD(45.0f);
-	settings->mLayer = Layers::MOVING;
-	settings->mShape = shape;
-	settings->mFriction = friction;
-	settings->mMass = 60;
-	settings->mSupportingVolume = Plane(JPH::Vec3::sAxisZ(), -radius); // Accept contacts that touch the lower sphere of the capsule
-	Character *character = new Character(settings, RVec3{tf->x, tf->y, tf->z}, Quat{tf->rx, tf->ry, tf->rz, tf->rw}, ch->entity, physicsSystem);
-	character->SetUp(JPH::Vec3(0, 0, 1.0f));
-	character->AddToPhysicsSystem(EActivation::Activate);
-	ch->joltCharacter = character;
-}
-void physDeleteCharacter(struct PhysCharacter *ch) {
-	Character *c = static_cast<Character *>(ch->joltCharacter);
-	c->RemoveFromPhysicsSystem();
-	delete c;
-}
-void physCharacterGetVelocity(struct PhysCharacter *ch, float *vel) {
-	Character *c = static_cast<Character *>(ch->joltCharacter);
-	JPH::Vec3 v = c->GetLinearVelocity();
-	vel[0] = v.GetX();
-	vel[1] = v.GetY();
-	vel[2] = v.GetZ();
-}
-void physCharacterSetVelocity(struct PhysCharacter *ch, float *vel) {
-	Character *c = static_cast<Character *>(ch->joltCharacter);
-	c->SetLinearVelocity(JPH::Vec3{ vel[0], vel[1], vel[2] });
-}
-void physCharacterGetPosition(struct PhysCharacter *ch, float *pos) {
-	Character *c = static_cast<Character *>(ch->joltCharacter);
-	JPH::Vec3 v = c->GetPosition();
-	pos[0] = v.GetX();
-	pos[1] = v.GetY();
-	pos[2] = v.GetZ();
-}
-void physCharacterSetPosition(struct PhysCharacter *ch, float *pos) {
-	Character *c = static_cast<Character *>(ch->joltCharacter);
-	c->SetPosition(JPH::Vec3{ pos[0], pos[1], pos[2] });
-}
-
 #ifndef RELEASE
 void physEnableDebugRender() {
 	addDrawUpdate(DRAW_PHYS_DEBUG, MyDebugRenderer::render, renderer);
@@ -579,15 +283,8 @@ void physDisableDebugRender() {
 
 void joltUpdate(void) {
 	BodyInterface &bi = physicsSystem->GetBodyInterface();
-	for (auto b = PHYS_BODIES.begin(); b != PHYS_BODIES.end(); ++b) {
-		if (b->flags & PHYS_SYNC_FROM_TF) {
-			Transform *tf = getTf(b->entity);
-			bi.SetPositionAndRotation(getJBody(b.ptr()), RVec3{ tf->x, tf->y, tf->z }, Quat{ tf->rx, tf->ry, tf->rz, tf->rw }, EActivation::DontActivate);
-		}
-	}
-	for (PhysBody *b = static_cast<PhysBody *>(clBegin(PHYS_BODY)); b; b = static_cast<PhysBody *>(clNext(PHYS_BODY, b))) {
-		
-	}
+	
+	joltBodyUpdatePre(bi);
 
 	const int cCollisionSteps = 1;
 	const float cDeltaTime = 1.0f / 60.0f;
@@ -595,47 +292,8 @@ void joltUpdate(void) {
 	physicsSystem->OptimizeBroadPhase();
 	physicsSystem->Update(cDeltaTime, cCollisionSteps, tempAllocator, jobSystem);
 
-	for (auto b = PHYS_BODIES.begin(); b != PHYS_BODIES.end(); ++b) {
-		if (b->flags & PHYS_SYNC_TO_TF) {
-			Transform *tf = getTf(b->entity);
-			RVec3 pos;
-			Quat rot;
-			bi.GetPositionAndRotation(getJBody(b.ptr()), pos, rot);
-			tf->x = pos.GetX();
-			tf->y = pos.GetY();
-			tf->z = pos.GetZ();
-			tf->rx = rot.GetX();
-			tf->ry = rot.GetY();
-			tf->rz = rot.GetZ();
-			tf->rw = rot.GetW();
-		}
-	}
-
-	for (auto ch = PHYS_CHARACTERS.begin(); ch != PHYS_CHARACTERS.end(); ++ch) {
-		Character *jch = static_cast<Character *>(ch->joltCharacter);
-		jch->PostSimulation(0.05f);
-		switch (jch->GetGroundState()) {
-		case Character::EGroundState::OnGround:
-			ch->groundState = PHYS_CHAR_SUPPORTED;
-			break;
-		case Character::EGroundState::OnSteepGround:
-			ch->groundState = PHYS_CHAR_TOO_STEEP;
-			break;
-		case Character::EGroundState::NotSupported:
-			ch->groundState = PHYS_CHAR_UNSUPPORTED;
-			break;
-		case Character::EGroundState::InAir:
-			ch->groundState = PHYS_CHAR_IN_AIR;
-			break;
-		}
-		if (ch->groundState != PHYS_CHAR_IN_AIR) {
-			JPH::Vec3 gn = jch->GetGroundNormal();
-			ch->groundNormX = gn.GetX();
-			ch->groundNormY = gn.GetY();
-			ch->groundNormZ = gn.GetZ();
-		}
-
-	}
+	joltBodyUpdatePost(bi);
+	joltCharacterUpdate(bi);
 }
 
 void joltInit(void) {
@@ -715,10 +373,8 @@ void joltInit(void) {
 	physicsSystem->SetGravity(RVec3{ 0, 0, -9.8f });
 
 	// Initialize CL
-	componentListInitSz(PHYS_BODY, sizeof(PhysBody));
-	setNotifier(PHYS_BODY, physBodyNotifier, nullptr);
-	componentListInitSz(PHYS_CHARACTER, sizeof(PhysCharacter));
-	setNotifier(PHYS_CHARACTER, physCharacterNotifier, nullptr);
+	joltBodyInit();
+	joltCharacterInit();
 
 #ifndef RELEASE
 	// Setup debug renderer
@@ -729,8 +385,8 @@ void joltInit(void) {
 }
 
 void joltFini(void) {
-	componentListFini(PHYS_CHARACTER);
-	componentListFini(PHYS_BODY);
+	joltBodyFini();
+	joltCharacterFini();
 
 	// Unregisters all types with the factory and cleans up the default material
 	UnregisterTypes();
