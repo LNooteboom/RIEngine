@@ -96,7 +96,8 @@ void joltBodyUpdatePost(JPH::BodyInterface &bi);
 void joltBodyInit(void);
 void joltBodyFini(void);
 
-void joltCharacterUpdate(JPH::BodyInterface &bi);
+void joltCharacterUpdatePre(JPH::BodyInterface &bi);
+void joltCharacterUpdatePost(JPH::BodyInterface &bi);
 void joltCharacterInit(void);
 void joltCharacterFini(void);
 

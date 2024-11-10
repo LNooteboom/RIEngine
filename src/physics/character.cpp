@@ -29,8 +29,8 @@ void physNewCharacterVirtual(struct PhysCharacter *ch, float radius, float halfH
 	settings->mShape = shape;
 	settings->mMass = 60;
 	settings->mSupportingVolume = Plane(JPH::Vec3::sAxisZ(), -radius); // Accept contacts that touch the lower sphere of the capsule
+	settings->mUp = RVec3{ 0, 0, 1 };
 	CharacterVirtual *c = new CharacterVirtual(settings, RVec3{ tf->x, tf->y, tf->z }, Quat{ tf->rx, tf->ry, tf->rz, tf->rw }, ch->entity, physicsSystem);
-	c->SetUp(JPH::Vec3(0, 0, 1.0f));
 	ch->joltCharacter = c;
 	ch->isVirtual = true;
 }
@@ -47,41 +47,18 @@ void physDeleteCharacter(struct PhysCharacter *ch) {
 	ch->joltCharacter = NULL;
 }
 
-void physCharacterGetVelocity(struct PhysCharacter *ch, float *vel) {
-	JPH::Vec3 v;
+void physCharacterSetVelocity(struct PhysCharacter *ch, float vx, float vy, float vz) {
+	JPH::Vec3 v{ vx, vy, vz };
 	if (ch->isVirtual) {
-		v = static_cast<CharacterVirtual *>(ch->joltCharacter)->GetLinearVelocity();
-	} else {
-		v = static_cast<Character *>(ch->joltCharacter)->GetLinearVelocity();
-	}
-	vel[0] = v.GetX();
-	vel[1] = v.GetY();
-	vel[2] = v.GetZ();
-}
-
-void physCharacterSetVelocity(struct PhysCharacter *ch, float *vel) {
-	JPH::Vec3 v{ vel[0], vel[1], vel[2] };
-	if (ch->isVirtual) {
+		CharacterVirtual *c = static_cast<CharacterVirtual *>(ch->joltCharacter);
 		static_cast<CharacterVirtual *>(ch->joltCharacter)->SetLinearVelocity(v);
 	} else {
 		static_cast<Character *>(ch->joltCharacter)->SetLinearVelocity(v);
 	}
 }
 
-void physCharacterGetPosition(struct PhysCharacter *ch, float *pos) {
-	JPH::Vec3 v;
-	if (ch->isVirtual) {
-		v = static_cast<CharacterVirtual *>(ch->joltCharacter)->GetPosition();
-	} else {
-		v = static_cast<Character *>(ch->joltCharacter)->GetPosition();
-	}
-	pos[0] = v.GetX();
-	pos[1] = v.GetY();
-	pos[2] = v.GetZ();
-}
-
-void physCharacterSetPosition(struct PhysCharacter *ch, float *pos) {
-	JPH::Vec3 v{ pos[0], pos[1], pos[2] };
+void physCharacterSetPosition(struct PhysCharacter *ch, float x, float y, float z) {
+	JPH::Vec3 v{ x, y, z };
 	if (ch->isVirtual) {
 		static_cast<CharacterVirtual *>(ch->joltCharacter)->SetPosition(v);
 	} else {
@@ -113,6 +90,17 @@ static void charNormalUpdate(BodyInterface &bi, PhysCharacter *ch) {
 		ch->groundNormY = gn.GetY();
 		ch->groundNormZ = gn.GetZ();
 	}
+
+	Vec3 vel = jch->GetLinearVelocity();
+	ch->vx = vel.GetX();
+	ch->vy = vel.GetY();
+	ch->vz = vel.GetZ();
+
+	Transform *tf = getTf(ch->entity);
+	Vec3 pos = jch->GetPosition();
+	tf->x = pos.GetX();
+	tf->y = pos.GetY();
+	tf->z = pos.GetZ();
 }
 
 
@@ -160,11 +148,15 @@ CharVirtShapeFilter charVirtShapeFilter;
 
 
 static void charVirtualUpdate(BodyInterface &bi, PhysCharacter *ch) {
+	Transform *tf = getTf(ch->entity);
+
 	CharacterVirtual *c = static_cast<CharacterVirtual *>(ch->joltCharacter);
 	CharacterVirtual::ExtendedUpdateSettings settings;
 	settings.mStickToFloorStepDown = RVec3{ 0, 0, -0.5f };
 	settings.mWalkStairsStepUp = RVec3{ 0, 0, 0.4f };
-	c->ExtendedUpdate(1.0f / 60, RVec3{ 0, 0, -9.8f }, settings, charVirtBPLayerFilter, charVirtObjLayerFilter, charVirtBodyFilter, charVirtShapeFilter, *tempAllocator);
+	//settings.mWalkStairsMinStepForward = 0.1f;
+	//settings.mWalkStairsStepForwardTest = 0.3f;
+	c->ExtendedUpdate(PHYS_DELTATIME, RVec3{ 0, 0, -9.8f }, settings, charVirtBPLayerFilter, charVirtObjLayerFilter, charVirtBodyFilter, charVirtShapeFilter, *tempAllocator);
 	
 	switch (c->GetGroundState()) {
 	case Character::EGroundState::OnGround:
@@ -187,22 +179,33 @@ static void charVirtualUpdate(BodyInterface &bi, PhysCharacter *ch) {
 		ch->groundNormY = gn.GetY();
 		ch->groundNormZ = gn.GetZ();
 	}
+
+	RVec3 pos = c->GetPosition();
+	tf->x = pos.GetX();
+	tf->y = pos.GetY();
+	tf->z = pos.GetZ();
+
+	RVec3 vel = c->GetLinearVelocity();
+	ch->vx = vel.GetX();
+	ch->vy = vel.GetY();
+	ch->vz = ch->groundState == PHYS_CHAR_IN_AIR? vel.GetZ() : 0;
 }
 
-void joltCharacterUpdate(BodyInterface &bi) {
+void joltCharacterUpdatePre(JPH::BodyInterface &bi) {
 	for (auto ch = PHYS_CHARACTERS.begin(); ch != PHYS_CHARACTERS.end(); ++ch) {
 		if (ch->isVirtual) {
 			charVirtualUpdate(bi, ch.ptr());
+		}
+	}
+}
+
+void joltCharacterUpdatePost(BodyInterface &bi) {
+	for (auto ch = PHYS_CHARACTERS.begin(); ch != PHYS_CHARACTERS.end(); ++ch) {
+		if (ch->isVirtual) {
+			//charVirtualUpdate(bi, ch.ptr());
 		} else {
 			charNormalUpdate(bi, ch.ptr());
 		}
-
-		float pos[3];
-		physCharacterGetPosition(ch.ptr(), pos);
-		struct Transform *tf = getTf(ch->entity);
-		tf->x = pos[0];
-		tf->y = pos[1];
-		tf->z = pos[2];
 	}
 }
 

@@ -7,6 +7,9 @@
 extern "C" {
 #endif
 
+#define PHYS_TICKRATE 60.0f
+#define PHYS_DELTATIME (1.0f / PHYS_TICKRATE)
+
 #define PHYS_SYNC_TO_TF 1
 #define PHYS_SYNC_FROM_TF 2
 #define PHYS_MOVING 4
@@ -32,6 +35,9 @@ struct PhysCharacter {
 	enum PhysCharacterGroundState groundState;
 	float groundNormX, groundNormY, groundNormZ;
 
+	/* Velocity */
+	float vx, vy, vz;
+
 	bool isVirtual;
 
 	void *joltCharacter;
@@ -55,10 +61,8 @@ void physNewCharacter(struct PhysCharacter *ch, float radius, float halfHeight, 
 void physNewCharacterVirtual(struct PhysCharacter *ch, float radius, float halfHeight);
 void physDeleteCharacter(struct PhysCharacter *ch);
 
-void physCharacterGetVelocity(struct PhysCharacter *ch, float *vel);
-void physCharacterSetVelocity(struct PhysCharacter *ch, float *vel);
-void physCharacterGetPosition(struct PhysCharacter *ch, float *pos);
-void physCharacterSetPosition(struct PhysCharacter *ch, float *pos);
+void physCharacterSetVelocity(struct PhysCharacter *ch, float vx, float vy, float vz);
+void physCharacterSetPosition(struct PhysCharacter *ch, float x, float y, float z);
 
 #ifndef RELEASE
 void physEnableDebugRender();

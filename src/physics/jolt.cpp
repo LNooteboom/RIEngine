@@ -287,15 +287,15 @@ void joltUpdate(void) {
 	BodyInterface &bi = physicsSystem->GetBodyInterface();
 	
 	joltBodyUpdatePre(bi);
+	joltCharacterUpdatePre(bi);
 
 	const int cCollisionSteps = 1;
-	const float cDeltaTime = 1.0f / 60.0f;
 	// Step the world
 	physicsSystem->OptimizeBroadPhase();
-	physicsSystem->Update(cDeltaTime, cCollisionSteps, tempAllocator, jobSystem);
+	physicsSystem->Update(PHYS_DELTATIME, cCollisionSteps, tempAllocator, jobSystem);
 
 	joltBodyUpdatePost(bi);
-	joltCharacterUpdate(bi);
+	joltCharacterUpdatePost(bi);
 }
 
 void joltInit(void) {
