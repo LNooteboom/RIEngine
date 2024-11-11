@@ -122,6 +122,11 @@ void physRemoveBody(struct PhysBody *b) {
 	physicsSystem->GetBodyInterface().RemoveBody(getJBody(b));
 }
 
+void physBodyUpdatePosition(struct PhysBody *b) {
+	struct Transform *tf = getTf(b->entity);
+	physicsSystem->GetBodyInterface().SetPositionAndRotation(getJBody(b), RVec3{ tf->x, tf->y, tf->z }, Quat{ tf->rx, tf->ry, tf->rz, tf->rw }, EActivation::Activate);
+}
+
 
 void joltBodyUpdatePre(BodyInterface &bi) {
 	for (auto b = PHYS_BODIES.begin(); b != PHYS_BODIES.end(); ++b) {
@@ -155,7 +160,10 @@ static void physBodyNotifier(void *arg, void *component, int type) {
 	if (type == NOTIFY_DELETE) {
 		PhysBody *b = static_cast<PhysBody *>(component);
 		if (b->flags & PHYS_HAS_BODY) {
-			physicsSystem->GetBodyInterface().DestroyBody(getJBody(b));
+			BodyInterface &bi = physicsSystem->GetBodyInterface();
+			BodyID id = getJBody(b);
+			bi.RemoveBody(id);
+			bi.DestroyBody(id);
 		}
 	} else if (type == NOTIFY_PURGE) {
 		int maxBodies = clCount(PHYS_BODY);

@@ -39,7 +39,6 @@ struct PhysCharacter {
 	float vx, vy, vz;
 
 	bool isVirtual;
-
 	void *joltCharacter;
 };
 
@@ -56,6 +55,7 @@ void physNewBodyCylinder(struct PhysBody *b, float halfZ, float radius, struct P
 void physDeleteBody(struct PhysBody *b);
 void physAddBody(struct PhysBody *b);
 void physRemoveBody(struct PhysBody *b);
+void physBodyUpdatePosition(struct PhysBody *b);
 
 void physNewCharacter(struct PhysCharacter *ch, float radius, float halfHeight, float friction);
 void physNewCharacterVirtual(struct PhysCharacter *ch, float radius, float halfHeight);
@@ -63,6 +63,8 @@ void physDeleteCharacter(struct PhysCharacter *ch);
 
 void physCharacterSetVelocity(struct PhysCharacter *ch, float vx, float vy, float vz);
 void physCharacterSetPosition(struct PhysCharacter *ch, float x, float y, float z);
+
+entity_t physDoRayCast(float x, float y, float z, float dx, float dy, float dz, float *fraction);
 
 #ifndef RELEASE
 void physEnableDebugRender();
