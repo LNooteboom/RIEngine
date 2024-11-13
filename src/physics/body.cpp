@@ -33,61 +33,23 @@ void physNewBodyBox(struct PhysBody *b, float *halfSize, struct PhysMaterial *ma
 	newBody(b, ss.Create().Get());
 }
 
-void physNewBodyMesh(struct PhysBody *b, const char *meshFile, const char *meshName) {
-	static const char *mfCorrupt = "Collision mesh file is corrupted: %s\n";
-	struct Asset *a = assetOpen(meshFile);
-	if (!a) {
-		fail("Failed to open coll mesh file %s\n", meshFile);
-		return;
-	}
-
-	struct ModelFileHeader header;
-	if (assetRead(a, &header, sizeof(header)) != sizeof(header)) {
-		fail(mfCorrupt, meshFile);
-		return;
-	}
-	if (memcmp(&header.sig, "MES0", 4) || header.nEntries == 0) {
-		fail(mfCorrupt, meshFile);
-		return;
-	}
-
-	struct ModelFileEntry mfe;
-	size_t vPitch, vSize, iSize;
-	bool found = false;
-	for (unsigned int i = 0; i < header.nEntries; i++) {
-		if (assetRead(a, &mfe, sizeof(mfe)) != sizeof(mfe)) {
-			fail(mfCorrupt, meshFile);
-			return;
-		}
-		vPitch = mfe.flags & MODEL_FILE_ANIM ? 52 : 48;
-		vSize = vPitch * mfe.nVertices;
-		iSize = mfe.nTriangles * 3 * 4;
-		if (!strcmp(meshName, mfe.name)) {
-			found = true;
-			break;
-		}
-		assetSeek(a, (long)(vSize + iSize), ASSET_CUR);
-	}
-	if (!found) {
-		logNorm("Could not find coll mesh %s in %s\n", meshName, meshFile);
+void physNewBodyMesh(struct PhysBody *b, const char *meshName) {
+	struct Model *m = getModel(meshName);
+	if (!m) {
+		logNorm("Couldn't find physics mesh %s\n", meshName);
 		return;
 	}
 
 	VertexList verts;
-	for (unsigned int i = 0; i < mfe.nVertices; i++) {
-		float cv[3];
-		assetRead(a, cv, sizeof(cv));
-		assetSeek(a, (long)(vPitch - sizeof(cv)), ASSET_CUR);
-		verts.push_back({ cv[0], cv[1], cv[2] });
-	}
 	IndexedTriangleList indices;
-	for (unsigned int i = 0; i < mfe.nTriangles; i++) {
-		uint32_t idx[3];
-		assetRead(a, idx, sizeof(idx));
-		indices.push_back({ idx[0], idx[1], idx[2], 0 });
+	for (uint32_t i = 0; i < m->nVertices; i++) {
+		float *v = (float *)((char *)m->verts + i * m->pitch);
+		verts.push_back({ v[0], v[1], v[2] });
 	}
-
-	assetClose(a);
+	for (uint32_t i = 0; i < m->nTriangles; i++) {
+		uint32_t *v = &m->indices[i * 3];
+		indices.push_back({ v[0], v[1], v[2], 0 });
+	}
 
 	MeshShapeSettings ms{ verts, indices };
 	ms.Sanitize();

@@ -47,7 +47,7 @@ struct PhysMaterial {
 };
 
 void physNewBodyBox(struct PhysBody *b, float *halfSize, struct PhysMaterial *mat);
-void physNewBodyMesh(struct PhysBody *b, const char *meshFile, const char *meshName);
+void physNewBodyMesh(struct PhysBody *b, const char *meshName);
 void physNewBodySphere(struct PhysBody *b, float radius, struct PhysMaterial *mat);
 void physNewBodyCapsule(struct PhysBody *b, float halfZ, float radius, struct PhysMaterial *mat);
 void physNewBodyCylinder(struct PhysBody *b, float halfZ, float radius, struct PhysMaterial *mat);

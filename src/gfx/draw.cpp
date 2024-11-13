@@ -506,12 +506,13 @@ int loadModelFile(const char *name) {
 		m->nVertices = entry.nVertices;
 
 		/* Read vertices */
-		size_t vboPitch = sizeof(float) * 12;
+		uint32_t vboPitch = sizeof(float) * 12;
 		if (entry.flags & MODEL_FILE_ANIM) {
 			vboPitch += 4;
 		}
 		size_t vboSize = m->nVertices * vboPitch;
-		m->verts = globalAlloc(vboSize);
+		m->pitch = vboPitch;
+		m->verts = (float *)globalAlloc(vboSize);
 		assetRead(a, m->verts, vboSize);
 
 		Vec3 aabbMin{ 999999.0f };
@@ -529,7 +530,7 @@ int loadModelFile(const char *name) {
 		m->aabbHalfExtent = aabbMax - m->aabbCenter;
 
 		size_t eboSize = m->nTriangles * 4ULL * 3;
-		m->indices = globalAlloc(eboSize);
+		m->indices = (uint32_t *)globalAlloc(eboSize);
 		assetRead(a, m->indices, eboSize);
 
 		uploadModel(m, m->verts, m->indices);
