@@ -511,13 +511,13 @@ int loadModelFile(const char *name) {
 			vboPitch += 4;
 		}
 		size_t vboSize = m->nVertices * vboPitch;
-		void *vbo = stackAlloc(vboSize);
-		assetRead(a, vbo, vboSize);
+		m->verts = globalAlloc(vboSize);
+		assetRead(a, m->verts, vboSize);
 
 		Vec3 aabbMin{ 999999.0f };
 		Vec3 aabbMax{ -999999.0f };
 		for (uint32_t j = 0; j < m->nVertices; j++) {
-			float *v = (float *)((char *)vbo + j * vboPitch);
+			float *v = (float *)((char *)m->verts + j * vboPitch);
 			aabbMin.x = fminf(aabbMin.x, v[0]);
 			aabbMin.y = fminf(aabbMin.y, v[1]);
 			aabbMin.z = fminf(aabbMin.z, v[2]);
@@ -529,13 +529,10 @@ int loadModelFile(const char *name) {
 		m->aabbHalfExtent = aabbMax - m->aabbCenter;
 
 		size_t eboSize = m->nTriangles * 4ULL * 3;
-		void *ebo = stackAlloc(eboSize);
-		assetRead(a, ebo, eboSize);
+		m->indices = globalAlloc(eboSize);
+		assetRead(a, m->indices, eboSize);
 
-		uploadModel(m, vbo, ebo);
-
-		stackDealloc(eboSize);
-		stackDealloc(vboSize);
+		uploadModel(m, m->verts, m->indices);
 	}
 
 closef:

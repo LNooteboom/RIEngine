@@ -88,6 +88,9 @@ struct Model {
 	uint32_t nTriangles;
 	uint32_t nVertices;
 
+	void *verts;
+	void *indices;
+
 	Vec3 aabbCenter;
 	Vec3 aabbHalfExtent;
 
