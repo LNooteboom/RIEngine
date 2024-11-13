@@ -52,6 +52,17 @@ enum DrawPhase {
 	DP_BACKBUFFER
 };
 
+enum LightStrength {
+	LIGHT_MINI,
+	LIGHT_TINY,
+	LIGHT_SMALL,
+	LIGHT_MEDIUM,
+	LIGHT_LARGE,
+	LIGHT_HUGE,
+
+	LIGHT_N
+};
+
 #define DRAW_STD_UNIFORM_MODEL		0
 #define DRAW_STD_UNIFORM_VIEW		1
 #define DRAW_STD_UNIFORM_PROJ		2
@@ -114,10 +125,7 @@ struct Light {
 	float linear;
 	float quadratic;
 };
-struct LightComponent {
-	entity_t entity;
-	struct Light light;
-};
+
 extern struct Light dirLight;
 extern struct Light pointLights[DRAW_MAX_POINTLIGHTS];
 extern uint32_t fogColor;
@@ -274,6 +282,12 @@ void drawRectBillboard(float w, float h);
 void drawEllipse(int nPoints, float w, float h);
 void drawArc(int nPoints, float rStart, float r, float w1, float w2);
 void drawSkybox(void);
+
+/*
+ * Lights
+ */
+void clearLights(void);
+void setLight(struct Light *l, float x, float y, float z, uint32_t color, float ambient, float diffuse, float specular, enum LightStrength strength);
 
 
 /*

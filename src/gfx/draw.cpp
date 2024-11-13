@@ -561,6 +561,34 @@ struct Model *getModel(const char *name) {
 	return ret;
 }
 
+void clearLights(void) {
+	memset(&dirLight, 0, sizeof(dirLight));
+	memset(&pointLights[0], 0, sizeof(struct Light) * DRAW_MAX_POINTLIGHTS);
+}
+
+static const float lightLinear[LIGHT_N] = { 0.22f, 0.14f, 0.09f, 0.07f, 0.045f, 0.027f };
+static const float lightQuad[LIGHT_N] = { 0.20f, 0.07f, 0.032f, 0.017f, 0.0075f, 0.0028f };
+void setLight(struct Light *l, float x, float y, float z, uint32_t color, float ambient, float diffuse, float specular, enum LightStrength strength) {
+	float r = ((color >> 16) & 0xFF) / 255.0f;
+	float g = ((color >> 8) & 0xFF) / 255.0f;
+	float b = (color & 0xFF) / 255.0f;
+	l->x = x;
+	l->y = y;
+	l->z = z;
+	l->ambientR = r * ambient;
+	l->ambientG = g * ambient;
+	l->ambientB = b * ambient;
+	l->diffuseR = r * diffuse;
+	l->diffuseG = g * diffuse;
+	l->diffuseB = b * diffuse;
+	l->specularR = r * specular;
+	l->specularG = g * specular;
+	l->specularB = b * specular;
+	l->constant = 1.0f;
+	l->linear = lightLinear[strength];
+	l->quadratic = lightQuad[strength];
+}
+
 extern "C" {
 	void drawInit(void);
 	void drawFini(void);
