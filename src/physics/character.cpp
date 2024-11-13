@@ -30,6 +30,7 @@ void physNewCharacterVirtual(struct PhysCharacter *ch, float radius, float halfH
 	settings->mMass = 60;
 	settings->mSupportingVolume = Plane(JPH::Vec3::sAxisZ(), -radius); // Accept contacts that touch the lower sphere of the capsule
 	settings->mUp = RVec3{ 0, 0, 1 };
+	settings->mBackFaceMode = EBackFaceMode::IgnoreBackFaces;
 	CharacterVirtual *c = new CharacterVirtual(settings, RVec3{ tf->x, tf->y, tf->z }, Quat{ tf->rx, tf->ry, tf->rz, tf->rw }, ch->entity, physicsSystem);
 	ch->joltCharacter = c;
 	ch->isVirtual = true;
@@ -188,7 +189,7 @@ static void charVirtualUpdate(BodyInterface &bi, PhysCharacter *ch) {
 	RVec3 vel = c->GetLinearVelocity();
 	ch->vx = vel.GetX();
 	ch->vy = vel.GetY();
-	ch->vz = ch->groundState == PHYS_CHAR_IN_AIR? vel.GetZ() : 0;
+	ch->vz = ch->groundState == PHYS_CHAR_IN_AIR || ch->groundState == PHYS_CHAR_UNSUPPORTED? vel.GetZ() : 0;
 }
 
 void joltCharacterUpdatePre(JPH::BodyInterface &bi) {
