@@ -266,7 +266,11 @@ static void copyLight(StdConstantPSLight *dest, Light *l, bool point) {
 		dest->pos[1] = v.y;
 		dest->pos[2] = v.z;
 	} else {
-		Vec4 v = Mat{ cam3DMatrix.m } * Vec4{ l->x, l->y, l->z, 0 };
+		Mat m = Mat{ cam3DMatrix.m };
+		m.inverse3();
+		m = m.transposed();
+		Vec4 v = m * Vec4{ l->x, l->y, l->z, 0 };
+
 		dest->pos[0] = v.x;
 		dest->pos[1] = v.y;
 		dest->pos[2] = v.z;
@@ -597,13 +601,15 @@ static void drawSetConstants(Mat *model) {
 		}
 		if (model) {
 			cvs->modelView = *view * *model;
-			if (!drawState.normMatValid) {
-				setNormMat();
-			}
-			cvs->normMat = *view * drawState.normMat;
 		} else {
 			cvs->modelView = *view;
-			cvs->normMat = *view;
+		}
+		if (drawState.drawPhase <= DP_3D_NO_CULL) {
+			Mat m{ cvs->modelView };
+			m.inverse3();
+			cvs->normMat = m.transposed();
+		} else {
+			cvs->normMat = identMat;
 		}
 	}
 
