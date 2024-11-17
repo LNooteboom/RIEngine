@@ -41,9 +41,9 @@ struct DrawVmInterpTargetInfo {
 static const struct DrawVmInterpTargetInfo interpTargets[DVM_INTERP_N] = {
 	[DVM_INTERP_NONE	 ] = {0									, 0},
 	[DVM_INTERP_OFFS	 ] = {offset(struct DrawVm, xOffs)	, 3},
-	0,
 	[DVM_INTERP_SCALE	 ] = {offset(struct DrawVm, xScale)	, 3},
 	[DVM_INTERP_ROT		 ] = {offset(struct DrawVm, xRot)		, 3},
+	[DVM_INTERP_WVEL     ] = {offset(struct DrawVm, xWVel)      , 3},
 	[DVM_INTERP_COL1	 ] = {offset(struct DrawVm, col1[0])	, 3},
 	[DVM_INTERP_COL2	 ] = {offset(struct DrawVm, col2[0])	, 3},
 	[DVM_INTERP_ALPHA1	 ] = {offset(struct DrawVm, col1[3])	, 1},

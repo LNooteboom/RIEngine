@@ -154,7 +154,7 @@ static void charVirtualUpdate(BodyInterface &bi, PhysCharacter *ch) {
 	CharacterVirtual *c = static_cast<CharacterVirtual *>(ch->joltCharacter);
 	CharacterVirtual::ExtendedUpdateSettings settings;
 	settings.mStickToFloorStepDown = RVec3{ 0, 0, -0.5f };
-	settings.mWalkStairsStepUp = RVec3{ 0, 0, 0.4f };
+	settings.mWalkStairsStepUp = RVec3{ 0, 0, 0.6f };
 	//settings.mWalkStairsMinStepForward = 0.1f;
 	//settings.mWalkStairsStepForwardTest = 0.3f;
 	c->ExtendedUpdate(PHYS_DELTATIME, RVec3{ 0, 0, -9.8f }, settings, charVirtBPLayerFilter, charVirtObjLayerFilter, charVirtBodyFilter, charVirtShapeFilter, *tempAllocator);
