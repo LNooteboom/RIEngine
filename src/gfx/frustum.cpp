@@ -77,7 +77,7 @@ bool drawModelInFrustum(struct Model *m) {
 	//Vec3 pos{ transform.m[12], transform.m[13], transform.m[14] };
 	Vec3 scale{ fabsf(transform.m[0]), fabsf(transform.m[5]), fabsf(transform.m[10]) };
 	//const AABB aabb{ m->aabbCenter + pos, m->aabbHalfExtent * scale };
-	const AABB aabb{ (transform * Vec4 {m->aabbCenter, 1}).xyz(), m->aabbHalfExtent * scale };
+	const AABB aabb{ (transform * Vec4 {m->aabbCenter, 1}), m->aabbHalfExtent * scale };
 	return (aabb.isOnOrForwardPlane(curFrustum.leftFace) &&
 		aabb.isOnOrForwardPlane(curFrustum.rightFace) &&
 		aabb.isOnOrForwardPlane(curFrustum.topFace) &&

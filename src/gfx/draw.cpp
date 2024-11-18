@@ -131,7 +131,7 @@ void drawTransform(struct Transform *tf) {
 }
 void drawTransformRounded(struct Transform *tf) {
 	Vec3 v = Vec3::fromTfPos(*tf);
-	v.round();
+	vecRound3(&v, &v);
 	drawState.matStack[drawState.matStackIdx] = Mat::fromTranslation(v);
 	drawState.normMatValid = false;
 
