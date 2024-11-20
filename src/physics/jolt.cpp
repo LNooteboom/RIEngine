@@ -124,18 +124,18 @@ public:
 		PhysBody *a = &PHYS_BODIES[inBody1.GetUserData()];
 		PhysBody *b = &PHYS_BODIES[inBody2.GetUserData()];
 		if (a->collFuncs && a->collFuncs->onAdded)
-			a->collFuncs->onAdded(a, b);
+			a->collFuncs->onAdded(a, b, NULL);
 		if (b->collFuncs && b->collFuncs->onAdded)
-			b->collFuncs->onAdded(b, a);
+			b->collFuncs->onAdded(b, a, NULL);
 	}
 
 	virtual void OnContactPersisted(const Body &inBody1, const Body &inBody2, const ContactManifold &inManifold, ContactSettings &ioSettings) override {
 		PhysBody *a = &PHYS_BODIES[inBody1.GetUserData()];
 		PhysBody *b = &PHYS_BODIES[inBody2.GetUserData()];
 		if (a->collFuncs && a->collFuncs->onPersisted)
-			a->collFuncs->onPersisted(a, b);
+			a->collFuncs->onPersisted(a, b, NULL);
 		if (b->collFuncs && b->collFuncs->onPersisted)
-			b->collFuncs->onPersisted(b, a);
+			b->collFuncs->onPersisted(b, a, NULL);
 	}
 
 	virtual void OnContactRemoved(const SubShapeIDPair &inSubShapePair) override {
@@ -147,11 +147,11 @@ public:
 class MyBodyActivationListener : public BodyActivationListener {
 public:
 	virtual void OnBodyActivated(const BodyID &inBodyID, uint64 inBodyUserData) override {
-		logDebug("[JOLT] Body Activated\n");
+		//logDebug("[JOLT] Body Activated\n");
 	}
 
 	virtual void OnBodyDeactivated(const BodyID &inBodyID, uint64 inBodyUserData) override {
-		logDebug("[JOLT] Body Deactivated\n");
+		//logDebug("[JOLT] Body Deactivated\n");
 	}
 };
 

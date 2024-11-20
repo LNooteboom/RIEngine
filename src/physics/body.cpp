@@ -27,9 +27,27 @@ static void newBody(struct PhysBody *b, Ref<Shape> ss) {
 	b->flags |= PHYS_FLAG_HAS_BODY;
 }
 
-void physNewBodyBox(struct PhysBody *b, Vec *halfSize, struct PhysMaterial *mat) {
+void physNewBodyBox(struct PhysBody *b, const Vec *offset, const Vec *rotation, const Vec *halfSize, struct PhysMaterial *mat) {
 	BoxShapeSettings ss{ RVec3{halfSize->x, halfSize->y, halfSize->z} };
-	newBody(b, ss.Create().Get());
+	if (offset || rotation) {
+		JPH::Vec3 off;
+		if (offset)
+			off.Set(offset->x, offset->y, offset->z);
+		else
+			off = JPH::Vec3::sZero();
+
+		JPH::Quat rot;
+		if (rotation)
+			rot.Set(rotation->x, rotation->y, rotation->z, rotation->w);
+		else
+			rot = JPH::Quat::sIdentity();
+
+		ss.SetEmbedded();
+		RotatedTranslatedShapeSettings rtss{ off, rot, &ss };
+		newBody(b, rtss.Create().Get());
+	} else {
+		newBody(b, ss.Create().Get());
+	}
 }
 
 void physNewBodyMesh(struct PhysBody *b, const char *meshName) {

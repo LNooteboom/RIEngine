@@ -30,10 +30,14 @@ enum PhysLayer {
 	PHYS_LAYER_N
 };
 
+
+struct PhysCollisionInfo {
+	int todo;
+};
 struct PhysBodyCollFuncs {
-	void (*onAdded)(struct PhysBody *b, struct PhysBody *other);
-	void (*onPersisted)(struct PhysBody *b, struct PhysBody *other);
-	void (*onRemoved)(struct PhysBody *b, struct PhysBody *other);
+	void (*onAdded)(struct PhysBody *b, struct PhysBody *other, struct PhysCollisionInfo *info);
+	void (*onPersisted)(struct PhysBody *b, struct PhysBody *other, struct PhysCollisionInfo *info);
+	void (*onRemoved)(struct PhysBody *b, struct PhysBody *other, struct PhysCollisionInfo *info);
 };
 
 struct PhysBody {
@@ -69,7 +73,7 @@ struct PhysMaterial {
 	int aaa;
 };
 
-void physNewBodyBox(struct PhysBody *b, Vec *halfSize, struct PhysMaterial *mat);
+void physNewBodyBox(struct PhysBody *b, const Vec *offset,  const Vec *rotation, const Vec *halfSize, struct PhysMaterial *mat);
 void physNewBodyMesh(struct PhysBody *b, const char *meshName);
 void physNewBodySphere(struct PhysBody *b, float radius, struct PhysMaterial *mat);
 void physNewBodyCapsule(struct PhysBody *b, float halfZ, float radius, struct PhysMaterial *mat);
