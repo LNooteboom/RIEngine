@@ -9,7 +9,7 @@ void physNewCharacter(struct PhysCharacter *ch, float radius, float halfHeight, 
 	Ref<CharacterSettings> settings = new CharacterSettings();
 	RefConst<Shape> shape = RotatedTranslatedShapeSettings(JPH::Vec3(0, 0, halfHeight + radius), Quat::sEulerAngles(JPH::Vec3{ DEG2RAD(-90), 0, 0 }), new CapsuleShape(halfHeight, radius)).Create().Get();
 	settings->mMaxSlopeAngle = DEG2RAD(45.0f);
-	settings->mLayer = Layers::MOVING;
+	settings->mLayer = PHYS_LAYER_CHAR_HITBOX;
 	settings->mShape = shape;
 	settings->mFriction = friction;
 	settings->mMass = 60;
@@ -92,13 +92,13 @@ static void charNormalUpdate(BodyInterface &bi, PhysCharacter *ch) {
 		ch->groundNormZ = gn.GetZ();
 	}
 
-	Vec3 vel = jch->GetLinearVelocity();
+	JPH::Vec3 vel = jch->GetLinearVelocity();
 	ch->vx = vel.GetX();
 	ch->vy = vel.GetY();
 	ch->vz = vel.GetZ();
 
 	Transform *tf = getTf(ch->entity);
-	Vec3 pos = jch->GetPosition();
+	JPH::Vec3 pos = jch->GetPosition();
 	tf->x = pos.GetX();
 	tf->y = pos.GetY();
 	tf->z = pos.GetZ();

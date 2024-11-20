@@ -9,6 +9,15 @@
 
 using namespace JPH;
 
+static const uint32_t layerCollides[PHYS_LAYER_N] = {
+	0x36, // 110110
+	0x17, // 010111
+	0x07, // 000111
+	0x10, // 010000
+	0x0D, // 001011
+	0x01  // 000001
+};
+
 // Callback for traces, connect this to your own trace function if you have one
 static void TraceImpl(const char *inFMT, ...) {
 	// Format the message
@@ -39,15 +48,7 @@ static bool AssertFailedImpl(const char *inExpression, const char *inMessage, co
 class ObjectLayerPairFilterImpl : public ObjectLayerPairFilter {
 public:
 	virtual bool ShouldCollide(ObjectLayer inObject1, ObjectLayer inObject2) const override {
-		switch (inObject1) {
-		case Layers::NON_MOVING:
-			return inObject2 == Layers::MOVING; // Non moving only collides with moving
-		case Layers::MOVING:
-			return true; // Moving collides with everything
-		default:
-			JPH_ASSERT(false);
-			return false;
-		}
+		return layerCollides[inObject1] & (1 << inObject2);
 	}
 };
 
@@ -57,8 +58,12 @@ class BPLayerInterfaceImpl final : public BroadPhaseLayerInterface {
 public:
 	BPLayerInterfaceImpl() {
 		// Create a mapping table from object to broad phase layer
-		mObjectToBroadPhase[Layers::NON_MOVING] = BroadPhaseLayers::NON_MOVING;
-		mObjectToBroadPhase[Layers::MOVING] = BroadPhaseLayers::MOVING;
+		mObjectToBroadPhase[PHYS_LAYER_STATIC] = BroadPhaseLayers::NON_MOVING;
+		mObjectToBroadPhase[PHYS_LAYER_MOVING] = BroadPhaseLayers::MOVING;
+		mObjectToBroadPhase[PHYS_LAYER_CHAR_HITBOX] = BroadPhaseLayers::MOVING;
+		mObjectToBroadPhase[PHYS_LAYER_CHAR_HURTBOX] = BroadPhaseLayers::MOVING;
+		mObjectToBroadPhase[PHYS_LAYER_WEAPON] = BroadPhaseLayers::MOVING;
+		mObjectToBroadPhase[PHYS_LAYER_DEBRIS] = BroadPhaseLayers::DEBRIS;
 	}
 
 	virtual uint GetNumBroadPhaseLayers() const override {
@@ -66,7 +71,7 @@ public:
 	}
 
 	virtual BroadPhaseLayer GetBroadPhaseLayer(ObjectLayer inLayer) const override {
-		JPH_ASSERT(inLayer < Layers::NUM_LAYERS);
+		JPH_ASSERT(inLayer < PHYS_LAYER_N);
 		return mObjectToBroadPhase[inLayer];
 	}
 
@@ -75,24 +80,27 @@ public:
 		switch ((BroadPhaseLayer::Type)inLayer) {
 		case (BroadPhaseLayer::Type)BroadPhaseLayers::NON_MOVING:	return "NON_MOVING";
 		case (BroadPhaseLayer::Type)BroadPhaseLayers::MOVING:		return "MOVING";
+		case (BroadPhaseLayer::Type)BroadPhaseLayers::DEBRIS:		return "DEBRIS";
 		default:													JPH_ASSERT(false); return "INVALID";
 		}
 	}
 #endif // JPH_EXTERNAL_PROFILE || JPH_PROFILE_ENABLED
 
 private:
-	BroadPhaseLayer					mObjectToBroadPhase[Layers::NUM_LAYERS];
+	BroadPhaseLayer					mObjectToBroadPhase[PHYS_LAYER_N];
 };
 
 /// Class that determines if an object layer can collide with a broadphase layer
 class ObjectVsBroadPhaseLayerFilterImpl : public ObjectVsBroadPhaseLayerFilter {
 public:
 	virtual bool ShouldCollide(ObjectLayer inLayer1, BroadPhaseLayer inLayer2) const override {
-		switch (inLayer1) {
-		case Layers::NON_MOVING:
-			return inLayer2 == BroadPhaseLayers::MOVING;
-		case Layers::MOVING:
-			return true;
+		switch (inLayer2.GetValue()) {
+		case 0:
+			return 0x36 & (1 << inLayer1);
+		case 1:
+			return inLayer1 != PHYS_LAYER_STATIC && inLayer1 != PHYS_LAYER_DEBRIS;
+		case 2:
+			return inLayer1 == PHYS_LAYER_STATIC;
 		default:
 			JPH_ASSERT(false);
 			return false;
@@ -113,10 +121,21 @@ public:
 
 	virtual void OnContactAdded(const Body &inBody1, const Body &inBody2, const ContactManifold &inManifold, ContactSettings &ioSettings) override {
 		//logDebug("[JOLT] Contact Added\n");
+		PhysBody *a = &PHYS_BODIES[inBody1.GetUserData()];
+		PhysBody *b = &PHYS_BODIES[inBody2.GetUserData()];
+		if (a->collFuncs && a->collFuncs->onAdded)
+			a->collFuncs->onAdded(a, b);
+		if (b->collFuncs && b->collFuncs->onAdded)
+			b->collFuncs->onAdded(b, a);
 	}
 
 	virtual void OnContactPersisted(const Body &inBody1, const Body &inBody2, const ContactManifold &inManifold, ContactSettings &ioSettings) override {
-		//logDebug("[JOLT] Contact Persisted\n");
+		PhysBody *a = &PHYS_BODIES[inBody1.GetUserData()];
+		PhysBody *b = &PHYS_BODIES[inBody2.GetUserData()];
+		if (a->collFuncs && a->collFuncs->onPersisted)
+			a->collFuncs->onPersisted(a, b);
+		if (b->collFuncs && b->collFuncs->onPersisted)
+			b->collFuncs->onPersisted(b, a);
 	}
 
 	virtual void OnContactRemoved(const SubShapeIDPair &inSubShapePair) override {

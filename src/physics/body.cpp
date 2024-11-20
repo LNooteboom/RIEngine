@@ -4,32 +4,31 @@
 using namespace JPH;
 
 static void newBody(struct PhysBody *b, Ref<Shape> ss) {
-	if (b->flags & PHYS_HAS_BODY) {
+	if (b->flags & PHYS_FLAG_HAS_BODY) {
 		physDeleteBody(b);
 	}
 
 	struct Transform *tf = getTf(b->entity);
 	EMotionType motionType;
-	ObjectLayer objectLayer;
-	if (b->flags & PHYS_KINEMATIC) {
+	if (b->flags & PHYS_FLAG_KINEMATIC) {
 		motionType = EMotionType::Kinematic;
-		objectLayer = Layers::MOVING;
-	} else if (b->flags & PHYS_MOVING) {
+	} else if (b->flags & PHYS_FLAG_MOVING) {
 		motionType = EMotionType::Dynamic;
-		objectLayer = Layers::MOVING;
 	} else {
 		motionType = EMotionType::Static;
-		objectLayer = Layers::NON_MOVING;
 	}
-	BodyCreationSettings bcs{ ss, RVec3{tf->x, tf->y, tf->z}, Quat{tf->rx, tf->ry, tf->rz, tf->rw}, motionType, objectLayer };
+	BodyCreationSettings bcs{ ss, RVec3{tf->x, tf->y, tf->z}, Quat{tf->rx, tf->ry, tf->rz, tf->rw}, motionType, ObjectLayer(b->layer) };
+	bcs.mUserData = b->entity;
+	bcs.mMotionQuality = b->flags & PHYS_FLAG_CONTINUOUS_COLLISION ? EMotionQuality::LinearCast : EMotionQuality::Discrete;
+	bcs.mIsSensor = b->flags & PHYS_FLAG_SENSOR ? true : false;
+
 	Body *body{ physicsSystem->GetBodyInterface().CreateBody(bcs) };
-	body->SetUserData(b->entity);
 	b->joltBody = body->GetID().GetIndexAndSequenceNumber();
-	b->flags |= PHYS_HAS_BODY;
+	b->flags |= PHYS_FLAG_HAS_BODY;
 }
 
-void physNewBodyBox(struct PhysBody *b, float *halfSize, struct PhysMaterial *mat) {
-	BoxShapeSettings ss{ RVec3{halfSize[0], halfSize[1], halfSize[2]} };
+void physNewBodyBox(struct PhysBody *b, Vec *halfSize, struct PhysMaterial *mat) {
+	BoxShapeSettings ss{ RVec3{halfSize->x, halfSize->y, halfSize->z} };
 	newBody(b, ss.Create().Get());
 }
 
@@ -73,7 +72,7 @@ void physNewBodyCylinder(struct PhysBody *b, float halfZ, float radius, struct P
 
 void physDeleteBody(struct PhysBody *b) {
 	physicsSystem->GetBodyInterface().DestroyBody(getJBody(b));
-	b->flags &= ~(PHYS_HAS_BODY);
+	b->flags &= ~(PHYS_FLAG_HAS_BODY);
 }
 
 void physAddBody(struct PhysBody *b) {
@@ -89,10 +88,14 @@ void physBodyUpdatePosition(struct PhysBody *b) {
 	physicsSystem->GetBodyInterface().SetPositionAndRotation(getJBody(b), RVec3{ tf->x, tf->y, tf->z }, Quat{ tf->rx, tf->ry, tf->rz, tf->rw }, EActivation::Activate);
 }
 
+void physBodySetVelocity(struct PhysBody *b, const Vec *vel) {
+	physicsSystem->GetBodyInterface().SetLinearVelocity(getJBody(b), { vel->x, vel->y, vel->z });
+}
+
 
 void joltBodyUpdatePre(BodyInterface &bi) {
 	for (auto b = PHYS_BODIES.begin(); b != PHYS_BODIES.end(); ++b) {
-		if (b->flags & PHYS_SYNC_FROM_TF) {
+		if (b->flags & PHYS_FLAG_SYNC_FROM_TF) {
 			Transform *tf = getTf(b->entity);
 			bi.SetPositionAndRotation(getJBody(b.ptr()), RVec3{ tf->x, tf->y, tf->z }, Quat{ tf->rx, tf->ry, tf->rz, tf->rw }, EActivation::DontActivate);
 		}
@@ -101,7 +104,7 @@ void joltBodyUpdatePre(BodyInterface &bi) {
 
 void joltBodyUpdatePost(BodyInterface &bi) {
 	for (auto b = PHYS_BODIES.begin(); b != PHYS_BODIES.end(); ++b) {
-		if (b->flags & PHYS_SYNC_TO_TF) {
+		if (b->flags & PHYS_FLAG_SYNC_TO_TF) {
 			Transform *tf = getTf(b->entity);
 			RVec3 pos;
 			Quat rot;
@@ -121,7 +124,7 @@ void joltBodyUpdatePost(BodyInterface &bi) {
 static void physBodyNotifier(void *arg, void *component, int type) {
 	if (type == NOTIFY_DELETE) {
 		PhysBody *b = static_cast<PhysBody *>(component);
-		if (b->flags & PHYS_HAS_BODY) {
+		if (b->flags & PHYS_FLAG_HAS_BODY) {
 			BodyInterface &bi = physicsSystem->GetBodyInterface();
 			BodyID id = getJBody(b);
 			bi.RemoveBody(id);
@@ -136,7 +139,7 @@ static void physBodyNotifier(void *arg, void *component, int type) {
 			int bodiesCnt = 0;
 			int activeCnt = 0;
 			for (PhysBody *b = static_cast<PhysBody *>(clBegin(PHYS_BODY)); b; b = static_cast<PhysBody *>(clNext(PHYS_BODY, b))) {
-				if (b->flags & PHYS_HAS_BODY) {
+				if (b->flags & PHYS_FLAG_HAS_BODY) {
 					BodyID id{ b->joltBody };
 					bodies[bodiesCnt] = id;
 					++bodiesCnt;
