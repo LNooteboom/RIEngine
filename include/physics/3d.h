@@ -60,7 +60,8 @@ struct PhysCharacter {
 	entity_t entity;
 
 	enum PhysCharacterGroundState groundState;
-	float groundNormX, groundNormY, groundNormZ;
+	Vec groundNorm;
+	Vec groundVel;
 
 	Vec vel;
 

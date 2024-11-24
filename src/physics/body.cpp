@@ -115,7 +115,11 @@ void joltBodyUpdatePre(BodyInterface &bi) {
 	for (auto b = PHYS_BODIES.begin(); b != PHYS_BODIES.end(); ++b) {
 		if (b->flags & PHYS_FLAG_SYNC_FROM_TF) {
 			Transform *tf = getTf(b->entity);
-			bi.SetPositionAndRotation(getJBody(b.ptr()), RVec3{ tf->x, tf->y, tf->z }, Quat{ tf->rx, tf->ry, tf->rz, tf->rw }, EActivation::DontActivate);
+			if (b->flags & PHYS_FLAG_KINEMATIC) {
+				bi.MoveKinematic(getJBody(b.ptr()), RVec3{ tf->x, tf->y, tf->z }, Quat{ tf->rx, tf->ry, tf->rz, tf->rw }, PHYS_DELTATIME);
+			} else {
+				bi.SetPositionAndRotation(getJBody(b.ptr()), RVec3{ tf->x, tf->y, tf->z }, Quat{ tf->rx, tf->ry, tf->rz, tf->rw }, EActivation::DontActivate);
+			}
 		}
 	}
 }
