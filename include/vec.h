@@ -19,7 +19,13 @@
 #define ALIGN_MAT __attribute((aligned(16)))
 #endif
 
-struct Vec {
+#ifdef __cplusplus
+#define ALIGN_MAT_DECL alignas(16)
+#else
+#define ALIGN_MAT_DECL
+#endif
+
+struct ALIGN_MAT_DECL Vec {
 	float x, y, z, w;
 
 #ifdef __cplusplus
@@ -47,7 +53,7 @@ struct Vec {
 #endif
 };
 
-struct Mat {
+struct ALIGN_MAT_DECL Mat {
 	float m[16];
 
 #ifdef __cplusplus

@@ -93,9 +93,9 @@ static void charNormalUpdate(BodyInterface &bi, PhysCharacter *ch) {
 	}
 
 	JPH::Vec3 vel = jch->GetLinearVelocity();
-	ch->vx = vel.GetX();
-	ch->vy = vel.GetY();
-	ch->vz = vel.GetZ();
+	ch->vel.x = vel.GetX();
+	ch->vel.y = vel.GetY();
+	ch->vel.z = vel.GetZ();
 
 	Transform *tf = getTf(ch->entity);
 	JPH::Vec3 pos = jch->GetPosition();
@@ -181,15 +181,23 @@ static void charVirtualUpdate(BodyInterface &bi, PhysCharacter *ch) {
 		ch->groundNormZ = gn.GetZ();
 	}
 
-	RVec3 pos = c->GetPosition();
+	JPH::Vec3 pos = c->GetPosition();
+	if (ch->groundState == PHYS_CHAR_IN_AIR || ch->groundState == PHYS_CHAR_UNSUPPORTED) {
+		Vec pos2 = {
+			pos.GetX() - tf->x,
+			pos.GetY() - tf->y,
+			pos.GetZ() - tf->z
+		};
+		vecMulS(&ch->vel, &pos2, PHYS_TICKRATE);
+	} else {
+		JPH::Vec3 vel = c->GetLinearVelocity();
+		ch->vel.x = vel.GetX();
+		ch->vel.y = vel.GetY();
+		ch->vel.z = 0;
+	}
 	tf->x = pos.GetX();
 	tf->y = pos.GetY();
 	tf->z = pos.GetZ();
-
-	RVec3 vel = c->GetLinearVelocity();
-	ch->vx = vel.GetX();
-	ch->vy = vel.GetY();
-	ch->vz = ch->groundState == PHYS_CHAR_IN_AIR || ch->groundState == PHYS_CHAR_UNSUPPORTED? vel.GetZ() : 0;
 }
 
 void joltCharacterUpdatePre(JPH::BodyInterface &bi) {

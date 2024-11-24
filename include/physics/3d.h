@@ -62,8 +62,7 @@ struct PhysCharacter {
 	enum PhysCharacterGroundState groundState;
 	float groundNormX, groundNormY, groundNormZ;
 
-	/* Velocity */
-	float vx, vy, vz;
+	Vec vel;
 
 	bool isVirtual;
 	void *joltCharacter;
