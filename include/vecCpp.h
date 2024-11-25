@@ -80,7 +80,7 @@ inline Vec Vec::cross(const Vec3 &v1, const Vec3 &v2) {
 }
 inline Vec Vec::eulerAngles(float rx, float ry, float rz) {
 	Vec v = { rx, ry, rz, 0 };
-	vecEulerAngles(&v, &v);
+	quatEulerAngles(&v, &v);
 	return v;
 }
 inline Vec Vec::zAxis(float rz) {
@@ -93,7 +93,7 @@ inline Vec Vec::lerp(const Vec &v1, const Vec &v2, float t) {
 }
 inline Vec Vec::nlerp(const Vec &v1, const Vec &v2, float t) {
 	Vec v;
-	vecNLerp(&v, &v1, &v2, t);
+	quatNLerp(&v, &v1, &v2, t);
 	return v;
 }
 inline Vec Vec::fromTfRot(const Transform &tf) {

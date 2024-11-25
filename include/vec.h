@@ -123,6 +123,11 @@ static inline Vec *vecMulS(Vec *out, const Vec *a, float b) {
 	_mm_store_ps(&out->x, v);
 	return out;
 }
+static inline Vec *vecDivS(Vec *out, const Vec *a, float b) {
+	__m128 v = _mm_div_ps(_mm_load_ps(&a->x), _mm_set_ps1(b));
+	_mm_store_ps(&out->x, v);
+	return out;
+}
 
 static inline Vec *vecFromTfPos(Vec *out, const struct Transform *tf) {
 	_mm_store_ps(&out->x, _mm_loadu_ps(&tf->x));
@@ -237,6 +242,9 @@ static inline void vecToTfPos(struct Transform *tf, const Vec *v) {
 static inline float vecDot3(const Vec *a, const Vec *b) {
 	return a->x * b->x + a->y * b->y + a->z * b->z;
 }
+static inline float vecDot4(const Vec *a, const Vec *b) {
+	return a->x * b->x + a->y * b->y + a->z * b->z + a->w * b->w;
+}
 static inline Vec *vecCross3(Vec *out, const Vec *a, const Vec *b) {
 	out->x = a->y * b->z - a->z * b->y;
 	out->y = a->z * b->x - a->x * b->z;
@@ -267,11 +275,11 @@ static inline Vec *vecRound3(Vec *out, const Vec *v) {
 
 /* Quaternions */
 
-static inline Vec *vecNLerp(Vec *out, const Vec *a, const Vec *b, float t) {
+static inline Vec *quatNLerp(Vec *out, const Vec *a, const Vec *b, float t) {
 	return vecNormalize4(out, vecLerp(out, a, b, t));
 }
 
-static inline Vec *vecEulerAngles(Vec *out, const Vec *ang) {
+static inline Vec *quatEulerAngles(Vec *out, const Vec *ang) {
 	float cx = cosf(0.5f * ang->x), sx = sinf(0.5f * ang->x);
 	float cy = cosf(0.5f * ang->y), sy = sinf(0.5f * ang->y);
 	float cz = cosf(0.5f * ang->z), sz = sinf(0.5f * ang->z);
@@ -279,6 +287,20 @@ static inline Vec *vecEulerAngles(Vec *out, const Vec *ang) {
 	out->y = cz * cx * sy + sz * sx * cy;
 	out->z = sz * cx * cy - cz * sx * sy;
 	out->w = cz * cx * cy + sz * sx * sy;
+	return out;
+}
+
+static inline Vec *quatSLerp(Vec *out, const Vec *a, const Vec *b, float t) {
+	float cosTheta = vecDot4(a, b);
+	if (cosTheta > 0.99f)
+		return quatNLerp(out, a, b, t); // Rotation is very close
+
+	float theta = acosf(cosTheta);
+	Vec v2;
+	vecMulS(out, a, sinf((1.0f - t) * theta));
+	vecMulS(&v2, b, sinf(t * theta));
+	vecAdd(out, out, &v2);
+	vecDivS(out, out, sinf(theta));
 	return out;
 }
 
