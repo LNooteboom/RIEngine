@@ -58,6 +58,7 @@ enum PhysCharacterGroundState {
 };
 struct PhysCharacter {
 	entity_t entity;
+	bool enable;
 
 	enum PhysCharacterGroundState groundState;
 	Vec groundNorm;

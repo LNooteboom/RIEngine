@@ -19,6 +19,7 @@ void physNewCharacter(struct PhysCharacter *ch, float radius, float halfHeight, 
 	character->AddToPhysicsSystem(EActivation::Activate);
 	ch->joltCharacter = character;
 	ch->isVirtual = false;
+	ch->enable = true;
 }
 
 void physNewCharacterVirtual(struct PhysCharacter *ch, float radius, float halfHeight) {
@@ -34,6 +35,7 @@ void physNewCharacterVirtual(struct PhysCharacter *ch, float radius, float halfH
 	CharacterVirtual *c = new CharacterVirtual(settings, RVec3{ tf->x, tf->y, tf->z }, Quat{ tf->rx, tf->ry, tf->rz, tf->rw }, ch->entity, physicsSystem);
 	ch->joltCharacter = c;
 	ch->isVirtual = true;
+	ch->enable = true;
 }
 
 
@@ -199,7 +201,7 @@ static void charVirtualUpdate(BodyInterface &bi, PhysCharacter *ch) {
 
 void joltCharacterUpdatePre(JPH::BodyInterface &bi) {
 	for (auto ch = PHYS_CHARACTERS.begin(); ch != PHYS_CHARACTERS.end(); ++ch) {
-		if (ch->isVirtual) {
+		if (ch->isVirtual && ch->enable) {
 			charVirtualUpdate(bi, ch.ptr());
 		}
 	}
@@ -209,7 +211,7 @@ void joltCharacterUpdatePost(BodyInterface &bi) {
 	for (auto ch = PHYS_CHARACTERS.begin(); ch != PHYS_CHARACTERS.end(); ++ch) {
 		if (ch->isVirtual) {
 			//charVirtualUpdate(bi, ch.ptr());
-		} else {
+		} else if (ch->enable) {
 			charNormalUpdate(bi, ch.ptr());
 		}
 	}
