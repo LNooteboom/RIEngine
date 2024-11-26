@@ -145,7 +145,7 @@ static inline Vec *vecLerp(Vec *out, const Vec *a, const Vec *b, float t) {
 	__m128 t2 = splat_x(_mm_set_ss(t));
 	__m128 t3 = _mm_sub_ps(_mm_set_ps1(1.0f), t2);
 
-	__m128 a2 = _mm_mul_ps(t3, _mm_load_ps(&b->x));
+	__m128 a2 = _mm_mul_ps(t3, _mm_load_ps(&a->x));
 	__m128 b2 = _mm_mul_ps(t2, _mm_load_ps(&b->x));
 	_mm_store_ps(&out->x, _mm_add_ps(a2, b2));
 	return out;
