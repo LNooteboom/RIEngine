@@ -110,7 +110,7 @@ static void charNormalUpdate(BodyInterface &bi, PhysCharacter *ch) {
 class CharVirtBPLayerFilter : public JPH::BroadPhaseLayerFilter {
 	virtual bool ShouldCollide([[maybe_unused]] BroadPhaseLayer inLayer) const
 	{
-		return true;
+		return inLayer == BroadPhaseLayers::NON_MOVING || inLayer == BroadPhaseLayers::MOVING;
 	}
 };
 CharVirtBPLayerFilter charVirtBPLayerFilter;
@@ -118,7 +118,18 @@ CharVirtBPLayerFilter charVirtBPLayerFilter;
 class CharVirtObjLayerFilter : public JPH::ObjectLayerFilter {
 	virtual bool ShouldCollide([[maybe_unused]] ObjectLayer inLayer) const
 	{
-		return true;
+		switch (inLayer) {
+		case PHYS_LAYER_STATIC:
+		case PHYS_LAYER_MOVING:
+		case PHYS_LAYER_CHAR_HITBOX:
+			return true;
+
+		default:
+		case PHYS_LAYER_CHAR_HURTBOX:
+		case PHYS_LAYER_WEAPON:
+		case PHYS_LAYER_DEBRIS:
+			return false;
+		}
 	}
 };
 CharVirtObjLayerFilter charVirtObjLayerFilter;

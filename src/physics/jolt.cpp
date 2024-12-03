@@ -14,7 +14,7 @@ static const uint32_t layerCollides[PHYS_LAYER_N] = {
 	0x17, // 010111
 	0x07, // 000111
 	0x10, // 010000
-	0x0D, // 001011
+	0x0B, // 001011
 	0x01  // 000001
 };
 

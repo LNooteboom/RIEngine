@@ -30,6 +30,13 @@ enum PhysLayer {
 	PHYS_LAYER_N
 };
 
+#define PHYS_LAYER_STATIC_MASK 1
+#define PHYS_LAYER_MOVING_MASK 2
+#define PHYS_LAYER_CHAR_HITBOX_MASK 4
+#define PHYS_LAYER_CHAR_HURTBOX_MASK 8
+#define PHYS_LAYER_WEAPON_MASK 16
+#define PHYS_LAYER_DEBRIS_MASK 32
+
 
 struct PhysCollisionInfo {
 	int todo;
@@ -93,7 +100,7 @@ void physDeleteCharacter(struct PhysCharacter *ch);
 void physCharacterSetVelocity(struct PhysCharacter *ch, float vx, float vy, float vz);
 void physCharacterSetPosition(struct PhysCharacter *ch, float x, float y, float z);
 
-entity_t physDoRayCast(float x, float y, float z, float dx, float dy, float dz, float *fraction);
+entity_t physDoRayCast(float *outFraction, int layerMask, const Vec *pos, const Vec *dir);
 
 #ifndef RELEASE
 void physEnableDebugRender();
