@@ -73,11 +73,25 @@ void drawUpdateFrustum(const Mat *projMat) {
 
 bool drawModelInFrustum(struct Model *m) {
 	const Mat &transform = drawState.matStack[drawState.matStackIdx];
-	// TODO rotation
-	//Vec3 pos{ transform.m[12], transform.m[13], transform.m[14] };
-	Vec3 scale{ fabsf(transform.m[0]), fabsf(transform.m[5]), fabsf(transform.m[10]) };
-	//const AABB aabb{ m->aabbCenter + pos, m->aabbHalfExtent * scale };
-	const AABB aabb{ (transform * Vec4 {m->aabbCenter, 1}), m->aabbHalfExtent * scale };
+	Vec3 center = transform * Vec4(m->aabbCenter, 1);
+
+	Vec3 right = Vec3{ cam3DMatrix.m[0], cam3DMatrix.m[1], cam3DMatrix.m[2] } * m->aabbHalfExtent.x;
+	Vec3 fwd = Vec3{ cam3DMatrix.m[4], cam3DMatrix.m[5], cam3DMatrix.m[6] } * m->aabbHalfExtent.y;
+	Vec3 up = Vec3{ cam3DMatrix.m[8], cam3DMatrix.m[9], cam3DMatrix.m[10] } * m->aabbHalfExtent.z;
+	float newIi =
+		fabsf(Vec3::dot({ 1, 0, 0 }, right)) +
+		fabsf(Vec3::dot({ 1, 0, 0 }, fwd)) +
+		fabsf(Vec3::dot({ 1, 0, 0 }, up));
+	float newIj =
+		fabsf(Vec3::dot({ 0, 1, 0 }, right)) +
+		fabsf(Vec3::dot({ 0, 1, 0 }, fwd)) +
+		fabsf(Vec3::dot({ 0, 1, 0 }, up));
+	float newIk =
+		fabsf(Vec3::dot({ 0, 0, 1 }, right)) +
+		fabsf(Vec3::dot({ 0, 0, 1 }, fwd)) +
+		fabsf(Vec3::dot({ 0, 0, 1 }, up));
+
+	const AABB aabb{ center, Vec3{newIi, newIj, newIk} };
 	return (aabb.isOnOrForwardPlane(curFrustum.leftFace) &&
 		aabb.isOnOrForwardPlane(curFrustum.rightFace) &&
 		aabb.isOnOrForwardPlane(curFrustum.topFace) &&
