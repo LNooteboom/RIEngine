@@ -121,8 +121,11 @@ public:
 
 	virtual void OnContactAdded(const Body &inBody1, const Body &inBody2, const ContactManifold &inManifold, ContactSettings &ioSettings) override {
 		//logDebug("[JOLT] Contact Added\n");
-		PhysBody *a = &PHYS_BODIES[inBody1.GetUserData()];
-		PhysBody *b = &PHYS_BODIES[inBody2.GetUserData()];
+		PhysBody *a = PHYS_BODIES.opt(inBody1.GetUserData());
+		PhysBody *b = PHYS_BODIES.opt(inBody2.GetUserData());
+		if (!a || !b)
+			return;
+
 		if (a->collFuncs && a->collFuncs->onAdded)
 			a->collFuncs->onAdded(a, b, NULL);
 		if (b->collFuncs && b->collFuncs->onAdded)
@@ -130,8 +133,11 @@ public:
 	}
 
 	virtual void OnContactPersisted(const Body &inBody1, const Body &inBody2, const ContactManifold &inManifold, ContactSettings &ioSettings) override {
-		PhysBody *a = &PHYS_BODIES[inBody1.GetUserData()];
-		PhysBody *b = &PHYS_BODIES[inBody2.GetUserData()];
+		PhysBody *a = PHYS_BODIES.opt(inBody1.GetUserData());
+		PhysBody *b = PHYS_BODIES.opt(inBody2.GetUserData());
+		if (!a || !b)
+			return;
+
 		if (a->collFuncs && a->collFuncs->onPersisted)
 			a->collFuncs->onPersisted(a, b, NULL);
 		if (b->collFuncs && b->collFuncs->onPersisted)
