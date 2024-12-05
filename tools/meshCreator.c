@@ -49,6 +49,9 @@ static int getDataFloat(float *out, cgltf_accessor *acc, unsigned int vert, unsi
 		printf("Unknown component type %d\n", acc->component_type);
 		return -1;
 	}
+	if (acc->type == cgltf_type_vec3 && n == 4) {
+		out[3] = 1.0f;
+	}
 	return 0;
 }
 

@@ -93,7 +93,7 @@ inline Vec Vec::lerp(const Vec &v1, const Vec &v2, float t) {
 }
 inline Vec Vec::nlerp(const Vec &v1, const Vec &v2, float t) {
 	Vec v;
-	quatNLerp(&v, &v1, &v2, t);
+	quatNlerp(&v, &v1, &v2, t);
 	return v;
 }
 inline Vec Vec::fromTfRot(const Transform &tf) {

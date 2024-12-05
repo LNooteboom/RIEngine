@@ -275,7 +275,7 @@ static inline Vec *vecRound3(Vec *out, const Vec *v) {
 
 /* Quaternions */
 
-static inline Vec *quatNLerp(Vec *out, const Vec *a, const Vec *b, float t) {
+static inline Vec *quatNlerp(Vec *out, const Vec *a, const Vec *b, float t) {
 	return vecNormalize4(out, vecLerp(out, a, b, t));
 }
 
@@ -290,10 +290,10 @@ static inline Vec *quatEulerAngles(Vec *out, const Vec *ang) {
 	return out;
 }
 
-static inline Vec *quatSLerp(Vec *out, const Vec *a, const Vec *b, float t) {
+static inline Vec *quatSlerp(Vec *out, const Vec *a, const Vec *b, float t) {
 	float cosTheta = vecDot4(a, b);
 	if (cosTheta > 0.99f)
-		return quatNLerp(out, a, b, t); // Rotation is very close
+		return quatNlerp(out, a, b, t); // Rotation is very close
 
 	float theta = acosf(cosTheta);
 	Vec v2;
@@ -301,6 +301,16 @@ static inline Vec *quatSLerp(Vec *out, const Vec *a, const Vec *b, float t) {
 	vecMulS(&v2, b, sinf(t * theta));
 	vecAdd(out, out, &v2);
 	vecDivS(out, out, sinf(theta));
+	return out;
+}
+
+static inline Vec *quatAngleAxis(Vec *out, const Vec *axis, float angle) {
+	float ang2 = angle * 0.5f;
+	float s = sinf(ang2), c = cosf(ang2);
+	out->x = axis->x * s;
+	out->y = axis->y * s;
+	out->z = axis->z * s;
+	out->w = c;
 	return out;
 }
 

@@ -75,9 +75,9 @@ bool drawModelInFrustum(struct Model *m) {
 	const Mat &transform = drawState.matStack[drawState.matStackIdx];
 	Vec3 center = transform * Vec4(m->aabbCenter, 1);
 
-	Vec3 right = Vec3{ cam3DMatrix.m[0], cam3DMatrix.m[1], cam3DMatrix.m[2] } * m->aabbHalfExtent.x;
-	Vec3 fwd = Vec3{ cam3DMatrix.m[4], cam3DMatrix.m[5], cam3DMatrix.m[6] } * m->aabbHalfExtent.y;
-	Vec3 up = Vec3{ cam3DMatrix.m[8], cam3DMatrix.m[9], cam3DMatrix.m[10] } * m->aabbHalfExtent.z;
+	Vec3 right = Vec3{ transform.m[0], transform.m[1], transform.m[2] } * m->aabbHalfExtent.x;
+	Vec3 fwd = Vec3{ transform.m[4], transform.m[5], transform.m[6] } * m->aabbHalfExtent.y;
+	Vec3 up = Vec3{ transform.m[8], transform.m[9], transform.m[10] } * m->aabbHalfExtent.z;
 	float newIi =
 		fabsf(Vec3::dot({ 1, 0, 0 }, right)) +
 		fabsf(Vec3::dot({ 1, 0, 0 }, fwd)) +
