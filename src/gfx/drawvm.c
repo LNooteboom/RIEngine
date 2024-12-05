@@ -235,6 +235,8 @@ static void drawVmDraw(struct DrawVm *d, struct DrawVm *par) {
 			drawTranslate(xAnchor, yAnchor);
 		}
 
+		drawCullInvert(d->flags & DVM_FLAG_CULL_FRONT);
+
 		drawSrcRect(sx, sy, sw, sh);
 		switch (d->mode) {
 		case DVM_NONE: /* Should never happen */
@@ -258,6 +260,11 @@ static void drawVmDraw(struct DrawVm *d, struct DrawVm *par) {
 		case DVM_ANIM:
 			if (d->model) {
 				drawAnim(d->model, getComponent(ANIM_STATE, d->entity));
+			}
+			break;
+		case DVM_ANIM_PARENT:
+			if (d->model && d->parent) {
+				drawAnim(d->model, getComponent(ANIM_STATE, d->parent)); /* Use AnimState of parent */
 			}
 			break;
 		case DVM_PLANE:

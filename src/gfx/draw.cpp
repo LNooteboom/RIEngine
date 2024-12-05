@@ -457,6 +457,7 @@ void drawReset(void) {
 	drawZBufferWrite(true);
 	drawUvModelMat(false);
 	drawWireframe(false);
+	drawCullInvert(false);
 }
 
 /*

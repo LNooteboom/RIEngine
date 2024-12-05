@@ -51,6 +51,8 @@ struct StdConstantVS {
 	Mat projection;
 	Mat normMat;
 	float args[8];
+	float col1[4];
+	float col2[4];
 };
 struct StdConstantPSTex {
 	float offs[2];
@@ -76,6 +78,8 @@ struct StdConstantPSScene {
 struct StdConstantPS {
 	StdConstantPSTex tex[8];
 	float args[8];
+	float col1[4];
+	float col2[4];
 };
 
 struct VertexShader {
@@ -123,6 +127,7 @@ static D3D11_MAPPED_SUBRESOURCE streamIndexMappedBuffer;
 
 static ID3D11RasterizerState *rasterize2D;
 static ID3D11RasterizerState *rasterize3D;
+static ID3D11RasterizerState *rasterize3DInvert;
 static ID3D11SamplerState *linearSampler;
 static ID3D11SamplerState *pointSampler;
 static ID3D11BlendState *blendStates[BLEND_N];
@@ -546,6 +551,17 @@ void drawWireframe(bool wf) {
 	}
 }
 
+void drawCullInvert(bool invert) {
+	if (drawState.cullInvert != invert && drawState.drawPhase == DP_3D) {
+		drawFlush();
+		if (invert)
+			deviceContext->RSSetState(rasterize3DInvert);
+		else
+			deviceContext->RSSetState(rasterize3D);
+	}
+	drawState.cullInvert = invert;
+}
+
 
 
 /*
@@ -616,6 +632,10 @@ static void drawSetConstants(Mat *model) {
 	for (int i = 0; i < 8; i++) {
 		cvs->args[i] = shaderArgs[i];
 	}
+	for (int i = 0; i < 4; i++) {
+		cvs->col1[i] = drawState.col1[i];
+		cvs->col2[i] = drawState.col2[i];
+	}
 	deviceContext->Unmap(stdConstantVSBuffer, 0);
 
 	D3D11_MAPPED_SUBRESOURCE stdConstantPSMappedBuffer;
@@ -629,6 +649,10 @@ static void drawSetConstants(Mat *model) {
 	}
 	for (int i = 0; i < 8; i++) {
 		cps->args[i] = shaderArgs[i];
+	}
+	for (int i = 0; i < 4; i++) {
+		cps->col1[i] = drawState.col1[i];
+		cps->col2[i] = drawState.col2[i];
 	}
 	deviceContext->Unmap(stdConstantPSBuffer, 0);
 
@@ -971,6 +995,8 @@ void drawDriverInit(void) {
 	device->CreateRasterizerState(&rasterizerDesc, &rasterize2D);
 	rasterizerDesc.CullMode = D3D11_CULL_BACK;
 	device->CreateRasterizerState(&rasterizerDesc, &rasterize3D);
+	rasterizerDesc.CullMode = D3D11_CULL_FRONT;
+	device->CreateRasterizerState(&rasterizerDesc, &rasterize3DInvert);
 
 	D3D11_SAMPLER_DESC samplerDesc = { 0 };
 	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;

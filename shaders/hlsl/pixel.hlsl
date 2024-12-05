@@ -33,6 +33,8 @@ cbuffer ps_constants : register(b0)
     ps_texture tex[N_TEXTURES];
     float4 args1;
     float4 args2;
+    float4 color1;
+    float4 color2;
 }
 
 cbuffer ps_light_constants : register(b1)

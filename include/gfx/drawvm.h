@@ -24,7 +24,8 @@ enum DrawVmMode {
 	DVM_ARC,
 	DVM_ANIM,
 	DVM_PLANE,
-	DVM_BILLBOARD
+	DVM_BILLBOARD,
+	DVM_ANIM_PARENT
 };
 enum DrawVmRotMode {
 	DVM_ROT_XYZ,
@@ -73,6 +74,7 @@ enum DrawVmInterpTarget {
 #define DVM_FLAG_SHADER_ARGS 2048
 #define DVM_FLAG_NO_FCULL 4096
 #define DVM_FLAG_ROUNDED_POS 8192
+#define DVM_FLAG_CULL_FRONT 16384
 #define DVM_FLAG_DELETE_ALL (1 << 29)
 #define DVM_FLAG_TTF (1 << 30)
 

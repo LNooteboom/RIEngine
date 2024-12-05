@@ -34,6 +34,8 @@ cbuffer vs_constants : register(b0)
     
     float4 args1;
     float4 args2;
+    float4 color1;
+    float4 color2;
 }
 
 #define MAX_BONE 32

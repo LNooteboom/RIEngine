@@ -155,6 +155,7 @@ struct DwState {
 	bool zWrite;
 	bool uvModelMat;
 	bool wireframe;
+	bool cullInvert;
 
 	float srcX, srcY, srcW, srcH;
 
@@ -257,6 +258,7 @@ void drawColorMode(enum ColorMode mode);
 void drawZBufferWrite(bool enable);
 void drawUvModelMat(bool enable);
 void drawWireframe(bool wf);
+void drawCullInvert(bool invert);
 
 /*
  * DRAWING
