@@ -18,6 +18,7 @@ extern "C" {
 #define PHYS_FLAG_HAS_BODY 16
 #define PHYS_FLAG_CONTINUOUS_COLLISION 32
 #define PHYS_FLAG_SENSOR 64
+#define PHYS_FLAG_ANIM 128
 
 enum PhysLayer {
 	PHYS_LAYER_STATIC,
@@ -47,11 +48,19 @@ struct PhysBodyCollFuncs {
 	void (*onRemoved)(struct PhysBody *b, struct PhysBody *other, struct PhysCollisionInfo *info);
 };
 
+struct PhysAnimShapeEntry {
+	int boneIdx;
+	float sx, sy, sz;
+};
+
 struct PhysBody {
 	entity_t entity;
 	int flags;
 	enum PhysLayer layer;
 
+	int nAnimShapes;
+	struct PhysAnimShapeEntry *animShapes;
+	
 	const struct PhysBodyCollFuncs *collFuncs;
 
 	uint32_t joltBody;

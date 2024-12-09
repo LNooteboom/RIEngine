@@ -3,6 +3,7 @@
 #include <events.h>
 #include <mem.h>
 #include <string.h>
+#include "gfx.h"
 
 int drawVmUpdateSkip;
 int drawVmLanguage;

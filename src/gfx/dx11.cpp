@@ -5,6 +5,7 @@
 #include <assets.h>
 #include <string.h>
 #include <events.h>
+#include "gfx.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>

@@ -152,9 +152,6 @@ void drawVmTexture(struct DrawVm *d, int slot, const char *texture);
 void drawVmInterp(struct DrawVm *d, int slot, int target, float time, int mode, float a, float b, float c);
 void drawVmAddFile(const char *file);
 
-void drawVmInit(void);
-void drawVmFini(void);
-
 #ifdef __cplusplus
 } // extern "C"
 #endif

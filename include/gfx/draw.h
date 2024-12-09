@@ -303,9 +303,6 @@ void camReset(void);
 void drawGetMonitorResolution(int *w, int *h);
 void drawSetResolution(int w, int h);
 
-/* Internal */
-void drawUpdateFrustum(const Mat *projMat);
-
 #ifdef __cplusplus
 } // extern "C"
 #endif

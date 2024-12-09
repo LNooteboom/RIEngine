@@ -2,7 +2,7 @@ target_sources(${ENGINE_NAME} PRIVATE
 	texture.c
 	drawvm.c
 	draw.cpp
-	anim.cpp
+	anim.c
 	ttf.c
 	frustum.cpp
 )

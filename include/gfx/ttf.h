@@ -21,9 +21,6 @@ enum Font {
 struct Texture *ttfLoad(const char *text, enum Font font, int size, int flags);
 int ttfWidth(uint32_t ch); /* Uses settings from last ttfLoad */
 
-void ttfInit(void);
-void ttfFini(void);
-
 #ifdef __cplusplus
 } // extern "C"
 #endif

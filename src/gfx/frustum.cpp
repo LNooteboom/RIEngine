@@ -1,5 +1,6 @@
 #include <gfx/draw.h>
 #include <vec.h>
+#include "gfx.h"
 
 struct Plane {
 	Vec3 normal;

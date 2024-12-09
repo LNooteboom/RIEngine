@@ -316,6 +316,12 @@ static inline Vec *quatAngleAxis(Vec *out, const Vec *axis, float angle) {
 
 /* Matrix */
 
+static inline Mat *matLoad(Mat *out, float *data) {
+	for (int i = 0; i < 16; i++) {
+		out->m[i] = data[i];
+	}
+}
+
 static inline Mat *matIdent(Mat *out, float ident) {
 	out->m[0] = ident; out->m[1] = 0; out->m[2] = 0; out->m[3] = 0;
 	out->m[4] = 0; out->m[5] = ident; out->m[6] = 0; out->m[7] = 0;

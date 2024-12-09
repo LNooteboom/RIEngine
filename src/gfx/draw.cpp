@@ -5,6 +5,7 @@
 #include <string.h>
 #include <gfx/ttf.h>
 #include <gfx/drawvm.h>
+#include "gfx.h"
 
 float cam3DX, cam3DY, cam3DZ;
 float cam3DRX, cam3DRY, cam3DRZ;
@@ -33,11 +34,6 @@ Vec3 cam3DPos;
 
 static struct HashTable modelTable;
 
-// Defined in driver
-void uploadModel(Model *m, void *verts, void *indices);
-void deleteModel(Model *m);
-void drawDriverInit();
-void drawDriverFini();
 
 /*
  * MATRIX

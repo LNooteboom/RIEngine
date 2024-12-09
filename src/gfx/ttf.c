@@ -3,6 +3,7 @@
 #include <SDL2/SDL_ttf.h>
 #include <assets.h>
 #include <gfx/texture.h>
+#include "gfx.h"
 
 static TTF_Font *fonts[N_FONTS];
 static int curFont;

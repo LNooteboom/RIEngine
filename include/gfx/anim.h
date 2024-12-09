@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#include <vec.h>
+
 #define DRAW_MAX_BONE 32
 
 #define ANIM_FLAG_SINGLE 1
@@ -57,23 +59,21 @@ struct LoadedPoseFile {
 };
 
 struct Anim3DBoneState {
-	float x, y, z;
-	float rx, ry, rz, rw;
-	float sx, sy, sz;
+	Vec pos, rot, scale;
 };
 struct Anim3DState {
 	entity_t entity;
 	struct LoadedPoseFile *poseFile;
 	const char *animName;
+	float animSpeed;
+	float animTime;
+	int flags;
 
 	void *globals;
 	void (*event)(struct Anim3DState *self);
 
-	int flags;
-
-	float animSpeed;
-	float animTime, lerpTime;
-	struct Anim3DBoneState lerpState[DRAW_MAX_BONE];
+	int nBones;
+	struct Anim3DBoneState *boneState;
 };
 
 
@@ -83,9 +83,6 @@ void deletePoseFile(struct LoadedPoseFile *lpf);
 void drawAnim(struct Model *m, struct Anim3DState *s);
 
 float anim3DLength(struct Anim3DState *s); /* Returns duration of current animation in frames */
-
-void anim3DInit(void);
-void anim3DFini(void);
 
 #ifdef __cplusplus
 } // extern "C"
