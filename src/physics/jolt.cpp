@@ -206,7 +206,42 @@ public:
 	}
 
 	virtual void DrawLine(RVec3Arg inFrom, RVec3Arg inTo, ColorArg inColor) {
+		JPH::Vec3 up{ 0, 0, 1 };
+		JPH::Vec3 dir = JPH::Vec3{ inTo - inFrom }.Normalized();
+		if (fabsf(dir.Dot(up)) < 0.001f) {
+			up.Set(0, 1, 0);
+		}
+		JPH::Vec3 right{ dir.Cross(up) };
 
+		drawPreflush(8, 12);
+		//drawMatIdentity();
+		drawTexture(0, tex);
+
+		float dst = 0.1f;
+		JPH::Vec3 v;
+		v = inFrom + up * dst;
+		drawVertex(v.GetX(), v.GetY(), v.GetZ(), 0, 0, inColor.r, inColor.g, inColor.b, 1);
+		v = inFrom - up * dst;
+		drawVertex(v.GetX(), v.GetY(), v.GetZ(), 0, 0, inColor.r, inColor.g, inColor.b, 1);
+		v = inTo + up * dst;
+		drawVertex(v.GetX(), v.GetY(), v.GetZ(), 0, 0, inColor.r, inColor.g, inColor.b, 1);
+		v = inTo - up * dst;
+		drawVertex(v.GetX(), v.GetY(), v.GetZ(), 0, 0, inColor.r, inColor.g, inColor.b, 1);
+
+		v = inFrom + right * dst;
+		drawVertex(v.GetX(), v.GetY(), v.GetZ(), 0, 0, inColor.r, inColor.g, inColor.b, 1);
+		v = inFrom - right * dst;
+		drawVertex(v.GetX(), v.GetY(), v.GetZ(), 0, 0, inColor.r, inColor.g, inColor.b, 1);
+		v = inTo + right * dst;
+		drawVertex(v.GetX(), v.GetY(), v.GetZ(), 0, 0, inColor.r, inColor.g, inColor.b, 1);
+		v = inTo - right * dst;
+		drawVertex(v.GetX(), v.GetY(), v.GetZ(), 0, 0, inColor.r, inColor.g, inColor.b, 1);
+
+		const uint32_t indices[12] = {
+			0, 1, 2,  2, 3, 1,
+			4, 5, 6,  6, 7, 5
+		};
+		drawIndices(8, 12, indices);
 	}
 
 	virtual void DrawTriangle(RVec3Arg inV1, RVec3Arg inV2, RVec3Arg inV3, ColorArg inColor, ECastShadow inCastShadow = ECastShadow::Off) {
@@ -275,11 +310,22 @@ public:
 		}
 		drawSetMatrix(mat);
 		drawTexture(0, tex);
-		for (int i = 0; i < b->nVertices; i++) {
-			MyVertex *v = &b->vertices[i];
-			drawVertex(v->x, v->y, v->z, v->u, v->v, v->r * inModelColor.r, v->g * inModelColor.g, v->b * inModelColor.b, v->a * inModelColor.a);
+		if (inDrawMode == EDrawMode::Solid) {
+			for (int i = 0; i < b->nVertices; i++) {
+				MyVertex *v = &b->vertices[i];
+				drawVertex(v->x, v->y, v->z, v->u, v->v, v->r * inModelColor.r, v->g * inModelColor.g, v->b * inModelColor.b, v->a * inModelColor.a);
+			}
+			drawIndices(b->nVertices, b->nIndices, b->indices);
+		} else {
+			for (int i = 0; i < b->nIndices - 1; i += 3) {
+				MyVertex *v1 = &b->vertices[b->indices[i]];
+				MyVertex *v2 = &b->vertices[b->indices[i + 1]];
+				MyVertex *v3 = &b->vertices[b->indices[i + 2]];
+				DrawLine({ v1->x, v1->y, v1->z }, { v2->x, v2->y, v2->z }, inModelColor);
+				DrawLine({ v3->x, v3->y, v3->z }, { v2->x, v2->y, v2->z }, inModelColor);
+				DrawLine({ v1->x, v1->y, v1->z }, { v3->x, v3->y, v3->z }, inModelColor);
+			}
 		}
-		drawIndices(b->nVertices, b->nIndices, b->indices);
 	}
 	virtual void DrawText3D(RVec3Arg inPosition, const string_view &inString, ColorArg inColor = Color::sWhite, float inHeight = 0.5f) {
 		// TODO
@@ -290,6 +336,7 @@ public:
 		drawReset();
 		BodyManager::DrawSettings settings;
 		settings.mDrawShapeWireframe = true;
+		settings.mDrawShape = true;
 		physicsSystem->DrawBodies(settings, r);
 	}
 
