@@ -256,6 +256,8 @@ static int exportPose(cgltf_data *data, const char *outname) {
 	for (unsigned int i = 0; i < hdr.nBones; i++) {
 		struct PoseFileBone bone;
 		cgltf_node *joint = skin->joints[i];
+		strncpy(bone.name, joint->name, sizeof(bone.name));
+		printf("Bone: %s\n", bone.name);
 		bone.parent = findParent(skin, joint);
 		memcpy(bone.inverseBindMat, getData(skin->inverse_bind_matrices, i), sizeof(float) * 16);
 		if (joint->has_translation) {

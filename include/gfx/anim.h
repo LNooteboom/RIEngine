@@ -13,6 +13,7 @@ extern "C" {
 struct Model;
 
 struct PoseFileBone {
+	char name[32];
 	int parent;
 	float inverseBindMat[16];
 
