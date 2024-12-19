@@ -58,9 +58,6 @@ struct LoadedPoseFile {
 	struct PoseFileHeader hdr;
 };
 
-struct Anim3DBoneState {
-	Vec pos, rot, scale;
-};
 struct Anim3DState {
 	entity_t entity;
 	struct LoadedPoseFile *poseFile;
@@ -73,7 +70,7 @@ struct Anim3DState {
 	void (*event)(struct Anim3DState *self);
 
 	int nBones;
-	struct Anim3DBoneState *boneState;
+	Mat *mats;
 };
 
 

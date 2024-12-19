@@ -48,11 +48,6 @@ struct PhysBodyCollFuncs {
 	void (*onRemoved)(struct PhysBody *b, struct PhysBody *other, struct PhysCollisionInfo *info);
 };
 
-struct PhysAnimShapeEntry {
-	int boneIdx;
-	float sx, sy, sz;
-};
-
 struct PhysBody {
 	entity_t entity;
 	int flags;

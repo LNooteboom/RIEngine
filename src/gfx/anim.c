@@ -10,6 +10,10 @@ struct AnimUbo {
 	Mat finalMats[DRAW_MAX_BONE];
 };
 
+struct Anim3DBoneState {
+	Vec pos, rot, scale;
+};
+
 struct LoadedPoseFile *loadPoseFile(const char *name) {
 	logDebug("Loading pose file %s\n", name);
 	struct Asset *a = assetOpen(name);
@@ -83,21 +87,24 @@ static void animUpdateState(struct Anim3DState *s, struct PoseFileAnim *a) {
 	struct PoseFileHeader *h = &s->poseFile->hdr;
 	struct PoseFileBone *b = (struct PoseFileBone *)(h + 1);
 
-	if (!s->boneState || s->nBones != h->nBones) {
+	if (!s->mats || s->nBones != h->nBones) {
 		s->nBones = h->nBones;
-		s->boneState = globalRealloc(s->boneState, s->nBones * sizeof(struct Anim3DBoneState));
+		s->mats = globalRealloc(s->mats, s->nBones * sizeof(Mat));
 	}
+
+	struct Anim3DBoneState states[DRAW_MAX_BONE];
+
 	for (int i = 0; i < s->nBones; i++) {
-		s->boneState[i].pos.x = b[i].trans[0];
-		s->boneState[i].pos.y = b[i].trans[1];
-		s->boneState[i].pos.z = b[i].trans[2];
-		s->boneState[i].rot.x = b[i].rot[0];
-		s->boneState[i].rot.y = b[i].rot[1];
-		s->boneState[i].rot.z = b[i].rot[2];
-		s->boneState[i].rot.w = b[i].rot[3];
-		s->boneState[i].scale.x = b[i].scale[0];
-		s->boneState[i].scale.y = b[i].scale[1];
-		s->boneState[i].scale.z = b[i].scale[2];
+		states[i].pos.x = b[i].trans[0];
+		states[i].pos.y = b[i].trans[1];
+		states[i].pos.z = b[i].trans[2];
+		states[i].rot.x = b[i].rot[0];
+		states[i].rot.y = b[i].rot[1];
+		states[i].rot.z = b[i].rot[2];
+		states[i].rot.w = b[i].rot[3];
+		states[i].scale.x = b[i].scale[0];
+		states[i].scale.y = b[i].scale[1];
+		states[i].scale.z = b[i].scale[2];
 	}
 
 	float t = s->animTime / 60.0f;
@@ -108,18 +115,37 @@ static void animUpdateState(struct Anim3DState *s, struct PoseFileAnim *a) {
 			struct PoseFileVec4 *v4 = (struct PoseFileVec4 *)v3;
 			switch (ch->type) {
 			case POSE_TRANSLATE:
-				poseFileGet3(&s->boneState[ch->bone].pos, ch->nEntries, v3, t);
+				poseFileGet3(&states[ch->bone].pos, ch->nEntries, v3, t);
 				break;
 			case POSE_ROTATE:
-				poseFileGet4(&s->boneState[ch->bone].rot, ch->nEntries, v4, t);
+				poseFileGet4(&states[ch->bone].rot, ch->nEntries, v4, t);
 				break;
 			case POSE_SCALE:
-				poseFileGet3(&s->boneState[ch->bone].scale, ch->nEntries, v3, t);
+				poseFileGet3(&states[ch->bone].scale, ch->nEntries, v3, t);
 				break;
 			}
 		}
 
 		ch = ((struct PoseFileAnimChannel *)((char *)ch + ch->size));
+	}
+
+	Mat mats[DRAW_MAX_BONE];
+	for (unsigned int i = 0; i < s->nBones; i++) {
+		/* convert bonestate to mat */
+		Mat mat;
+		matFromTranslation(&mat, &states[i].pos);
+		matRotate(&mat, &mat, &states[i].rot);
+		matScale(&mat, &mat, &states[i].scale);
+
+		if (b[i].parent >= 0) {
+			matMul(&mats[i], &mats[b[i].parent], &mat);
+		} else {
+			matCopy(&mats[i], &mat);
+		}
+
+		Mat invBind;
+		matLoad(&invBind, b[i].inverseBindMat);
+		matMul(&s->mats[i], &mats[i], &invBind);
 	}
 }
 
@@ -153,7 +179,7 @@ static void anim3DUpdate(void *arg) {
 }
 
 void drawAnim(struct Model *m, struct Anim3DState *s) {
-	if (!s->poseFile || !s->animName || !s->boneState)
+	if (!s->poseFile || !s->animName || !s->mats)
 		return;
 	drawFlush();
 
@@ -163,21 +189,10 @@ void drawAnim(struct Model *m, struct Anim3DState *s) {
 	struct PoseFileHeader *h = &s->poseFile->hdr;
 	struct PoseFileBone *b = (struct PoseFileBone *)(h + 1);
 	for (unsigned int i = 0; i < s->nBones; i++) {
-		/* convert bonestate to mat */
-		Mat mat;
-		matFromTranslation(&mat, &s->boneState[i].pos);
-		matRotate(&mat, &mat, &s->boneState[i].rot);
-		matScale(&mat, &mat, &s->boneState[i].scale);
-
-		if (b[i].parent >= 0) {
-			matMul(&mats[i], &mats[b[i].parent], &mat);
-		} else {
-			matCopy(&mats[i], &mat);
-		}
-
-		Mat invBind;
-		matLoad(&invBind, b[i].inverseBindMat);
-		matMul(&ubo.finalMats[i], &mats[i], &invBind);
+		//Mat invBind;
+		//matLoad(&invBind, b[i].inverseBindMat);
+		//matMul(&ubo.finalMats[i], &s->mats[i], &invBind);
+		matCopy(&ubo.finalMats[i], &s->mats[i]);
 	}
 	drawSetAnimUbo(&ubo, sizeof(ubo));
 	drawModel3D(m);
@@ -189,11 +204,11 @@ static void anim3DNotify(void *arg, void *component, int type) {
 	if (type == NOTIFY_CREATE) {
 		s->animSpeed = 1;
 	} else if (type == NOTIFY_DELETE) {
-		globalDealloc(s->boneState);
-		s->boneState = NULL;
+		globalDealloc(s->mats);
+		s->mats = NULL;
 	} else if (type == NOTIFY_PURGE) {
 		for (s = clBegin(ANIM_STATE); s; s = clNext(ANIM_STATE, s)) {
-			globalDealloc(s->boneState);
+			globalDealloc(s->mats);
 		}
 	}
 }
