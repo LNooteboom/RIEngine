@@ -314,6 +314,33 @@ static inline Vec *quatAngleAxis(Vec *out, const Vec *axis, float angle) {
 	return out;
 }
 
+static inline Vec *quatMul(Vec *out, const Vec *a, const Vec *b) {
+	float x = a->w * b->x + a->x * b->w + a->y * b->z - a->z * b->y;
+	float y = a->w * b->y - a->x * b->z + a->y * b->w + a->z * b->x;
+	float z = a->w * b->z + a->x * b->y - a->y * b->x + a->z * b->w;
+	float w = a->w * b->w - a->x * b->x - a->y * b->y - a->z * b->z;
+	out->x = x;
+	out->y = y;
+	out->z = z;
+	out->w = w;
+	return out;
+}
+
+static inline Vec *quatConjugate(Vec *out, const Vec *a) {
+	out->x = -a->x;
+	out->y = -a->y;
+	out->z = -a->z;
+	out->w = a->w;
+	return out;
+}
+
+static inline Vec *quatRotate(Vec *out, const Vec *q, const Vec *v) {
+	Vec conj;
+	quatConjugate(&conj, q);
+	quatMul(out, q, v);
+	return quatMul(out, out, &conj);
+}
+
 /* Matrix */
 
 static inline Mat *matLoad(Mat *out, float *data) {
@@ -536,6 +563,7 @@ static inline Vec *matGetRotation(Vec *out, const Mat *mat) {
 		out->z = 0.5f * s;
 		out->w = (m[0 * 4 + 1] - m[1 * 4 + 0]) * is;
 	}
+	return out;
 }
 
 #include "vecCpp.h"

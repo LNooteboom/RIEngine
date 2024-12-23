@@ -129,7 +129,6 @@ static void animUpdateState(struct Anim3DState *s, struct PoseFileAnim *a) {
 		ch = ((struct PoseFileAnimChannel *)((char *)ch + ch->size));
 	}
 
-	Mat mats[DRAW_MAX_BONE];
 	for (unsigned int i = 0; i < s->nBones; i++) {
 		/* convert bonestate to mat */
 		Mat mat;
@@ -138,14 +137,10 @@ static void animUpdateState(struct Anim3DState *s, struct PoseFileAnim *a) {
 		matScale(&mat, &mat, &states[i].scale);
 
 		if (b[i].parent >= 0) {
-			matMul(&mats[i], &mats[b[i].parent], &mat);
+			matMul(&s->mats[i], &s->mats[b[i].parent], &mat);
 		} else {
-			matCopy(&mats[i], &mat);
+			matCopy(&s->mats[i], &mat);
 		}
-
-		Mat invBind;
-		matLoad(&invBind, b[i].inverseBindMat);
-		matMul(&s->mats[i], &mats[i], &invBind);
 	}
 }
 
@@ -189,10 +184,9 @@ void drawAnim(struct Model *m, struct Anim3DState *s) {
 	struct PoseFileHeader *h = &s->poseFile->hdr;
 	struct PoseFileBone *b = (struct PoseFileBone *)(h + 1);
 	for (unsigned int i = 0; i < s->nBones; i++) {
-		//Mat invBind;
-		//matLoad(&invBind, b[i].inverseBindMat);
-		//matMul(&ubo.finalMats[i], &s->mats[i], &invBind);
-		matCopy(&ubo.finalMats[i], &s->mats[i]);
+		Mat invBind;
+		matLoad(&invBind, b[i].inverseBindMat);
+		matMul(&ubo.finalMats[i], &s->mats[i], &invBind);
 	}
 	drawSetAnimUbo(&ubo, sizeof(ubo));
 	drawModel3D(m);
