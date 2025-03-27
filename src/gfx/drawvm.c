@@ -1053,6 +1053,22 @@ static void i_ttfWidth(struct IchigoVm *vm) {
 	ichigoSetInt(vm, 0, w);
 }
 
+static void i_subStr(struct IchigoVm *vm) {
+	uint16_t totalLen;
+	const char *in = ichigoGetString(&totalLen, vm, 1);
+	int start = ichigoGetInt(vm, 2);
+	int len = ichigoGetInt(vm, 3);
+	if (len < 0 || len + start > totalLen) len = totalLen - start;
+	
+	char *buf = stackAlloc(len + 1);
+	for (int i = 0; i < len; i++) {
+		buf[i] = in[i + start];
+	}
+	buf[len] = 0;
+	ichigoSetArrayMut(vm, 0, buf, len, REG_BYTE);
+	stackDealloc(len + 1);
+}
+
 static struct IchigoVar iVars[32];
 static IchigoInstr *iInstrs[] = {
 	[1] = i_setDelete,
@@ -1099,7 +1115,8 @@ static IchigoInstr *iInstrs[] = {
 
 	[50] = i_strChar,
 	[51] = i_textureTTF,
-	[52] = i_ttfWidth
+	[52] = i_ttfWidth,
+	[53] = i_subStr
 };
 
 

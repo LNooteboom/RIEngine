@@ -678,17 +678,21 @@ void ichigoSetArray(struct IchigoVm *vm, int arg, const void *data, uint32_t len
 }
 
 static struct IchigoHeapObject *ichigoSetArrayMutReg(struct IchigoReg *reg, const void *data, uint32_t len, int regType) {
+	ichDeleteReg(reg);
 	struct IchigoHeapObject *ho = ichHeapNew();
 	ho->refCount = 1;
 	ho->len = len;
 
 	size_t dataSz = len * dataElemSize[regType];
+	if (regType == REG_BYTE)
+		dataSz += 1;
 	ho->data = globalAlloc(dataSz);
 	if (data) {
 		memcpy(ho->data, data, dataSz);
 	}
+	if (regType == REG_BYTE)
+		((char *)ho->data)[dataSz - 1] = 0;
 
-	ichDeleteReg(reg);
 	reg->regType = regType;
 	reg->refType = T_ARRAY;
 	reg->e = ho->entity;
