@@ -5,9 +5,29 @@
 #include <gfx/texture.h>
 #include "gfx.h"
 
-static TTF_Font *fonts[N_FONTS];
+static TTF_Font *fonts[TTF_MAX_FONTS];
 static int curFont;
-struct Asset *fontAssets[1];
+struct Asset *fontAssets[TTF_MAX_FONTS];
+
+int ttfLoadFont(int idx, const char* file) {
+	fontAssets[idx] = assetOpen(file);
+	if (!fontAssets[idx])
+		return -1;
+	
+	fonts[idx] = TTF_OpenFontRW(fontAssets[idx]->rwOps, 0, 32);
+	return fonts[idx] ? 0 : -1;
+}
+
+void ttfDeleteFont(int idx) {
+	if (fonts[idx]) {
+		TTF_CloseFont(fonts[idx]);
+		fonts[idx] = NULL;
+	}
+	if (fontAssets[idx]) {
+		assetClose(fontAssets[idx]);
+		fontAssets[idx] = NULL;
+	}
+}
 
 struct Texture *ttfLoad(const char *text, enum Font font, int size, int flags) {
 	SDL_Color col = {
@@ -55,16 +75,10 @@ void ttfInit(void) {
 		return;
 	}
 
-	fontAssets[0] = assetOpen("ascii/NotoSerifJP-Regular.otf");
-	if (fontAssets[0]) {
-		fonts[0] = TTF_OpenFontRW(fontAssets[0]->rwOps, 0, 32);
-	}
-
-	//assetClose(notoSerif); Crashes when trying to render with closed asset
+	ttfLoadFont(TTF_FONT_DEFAULT, TTF_FONT_DEFAULT_FILE);
 }
 void ttfFini(void) {
-	for (int i = 0; i < N_FONTS; i++) {
-		TTF_CloseFont(fonts[i]);
+	for (int i = 0; i < TTF_MAX_FONTS; i++) {
+		ttfDeleteFont(i);
 	}
-	assetClose(fontAssets[0]);
 }
