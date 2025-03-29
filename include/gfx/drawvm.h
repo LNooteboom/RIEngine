@@ -141,6 +141,7 @@ struct DrawVm {
 extern int drawVmUpdateSkip;
 extern int drawVmLanguage;
 extern int drawVmCount;
+extern float drawVmGlobalsF[8];
 
 struct DrawVm *drawVmNew(entity_t entity, const char *fn);
 struct DrawVm *drawVmNewChild(struct DrawVm *parent, const char *fn);

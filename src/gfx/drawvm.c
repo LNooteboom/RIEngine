@@ -10,6 +10,8 @@ int drawVmLanguage;
 int drawVmApi;
 int drawVmCount;
 
+float drawVmGlobalsF[8];
+
 static struct DrawVm *curDvm;
 
 struct DrawVmLayer {
@@ -710,6 +712,19 @@ static float i_getVarANIM_LENGTH(struct IchigoVm *vm) {
 	return a ? anim3DLength(a) : 0;
 }
 
+#define DVM_GLBL_GET(T, NAME, DST) static T i_getVar##NAME(struct IchigoVm *vm) {return DST;}
+#define DVM_GLBL_SET(T, NAME, DST) static void i_setVar##NAME(struct IchigoVm *vm, T val) {DST = val;}
+#define DVM_GLBL_GETSET(T, NAME, DST) DVM_GLBL_GET(T, NAME, DST) DVM_GLBL_SET(T, NAME, DST)
+
+DVM_GLBL_GETSET(float, GF0, drawVmGlobalsF[0])
+DVM_GLBL_GETSET(float, GF1, drawVmGlobalsF[1])
+DVM_GLBL_GETSET(float, GF2, drawVmGlobalsF[2])
+DVM_GLBL_GETSET(float, GF3, drawVmGlobalsF[3])
+DVM_GLBL_GETSET(float, GF4, drawVmGlobalsF[4])
+DVM_GLBL_GETSET(float, GF5, drawVmGlobalsF[5])
+DVM_GLBL_GETSET(float, GF6, drawVmGlobalsF[6])
+DVM_GLBL_GETSET(float, GF7, drawVmGlobalsF[7])
+
 static void i_setDelete(struct IchigoVm *vm) {
 	struct DrawVm *d = GET_DVM(vm);
 	d->state = DVM_DELETED;
@@ -1069,7 +1084,7 @@ static void i_subStr(struct IchigoVm *vm) {
 	stackDealloc(len + 1);
 }
 
-static struct IchigoVar iVars[32];
+static struct IchigoVar iVars[64];
 static IchigoInstr *iInstrs[] = {
 	[1] = i_setDelete,
 	[2] = i_setStatic,
@@ -1143,9 +1158,17 @@ void drawVmInit(void) {
 	setVar(25, REG_INT, i_getVarAPI, NULL);
 	setVar(30, REG_INT, i_getVarANIM_FLAGS, i_setVarANIM_FLAGS);
 	setVar(31, REG_FLOAT, i_getVarANIM_LENGTH, NULL);
+	setVar(32, REG_FLOAT, i_getVarGF0, i_setVarGF0);
+	setVar(33, REG_FLOAT, i_getVarGF1, i_setVarGF1);
+	setVar(34, REG_FLOAT, i_getVarGF2, i_setVarGF2);
+	setVar(35, REG_FLOAT, i_getVarGF3, i_setVarGF3);
+	setVar(36, REG_FLOAT, i_getVarGF4, i_setVarGF4);
+	setVar(37, REG_FLOAT, i_getVarGF5, i_setVarGF5);
+	setVar(38, REG_FLOAT, i_getVarGF6, i_setVarGF6);
+	setVar(39, REG_FLOAT, i_getVarGF7, i_setVarGF7);
 
 	ichigoInit(&iState, "dvm");
-	ichigoSetVarTable(&iState, iVars, 32);
+	ichigoSetVarTable(&iState, iVars, sizeof(iVars) / sizeof(iVars[0]));
 	ichigoSetInstrTable(&iState, iInstrs, sizeof(iInstrs) / sizeof(iInstrs[0]));
 	ichigoBindLocals(&iState);
 
