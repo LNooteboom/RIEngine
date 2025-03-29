@@ -725,6 +725,13 @@ DVM_GLBL_GETSET(float, GF5, drawVmGlobalsF[5])
 DVM_GLBL_GETSET(float, GF6, drawVmGlobalsF[6])
 DVM_GLBL_GETSET(float, GF7, drawVmGlobalsF[7])
 
+static int i_getVarWIN_W(struct IchigoVm *vm) {
+	return winW;
+}
+static int i_getVarWIN_H(struct IchigoVm *vm) {
+	return winH;
+}
+
 static void i_setDelete(struct IchigoVm *vm) {
 	struct DrawVm *d = GET_DVM(vm);
 	d->state = DVM_DELETED;
@@ -1166,6 +1173,8 @@ void drawVmInit(void) {
 	setVar(37, REG_FLOAT, i_getVarGF5, i_setVarGF5);
 	setVar(38, REG_FLOAT, i_getVarGF6, i_setVarGF6);
 	setVar(39, REG_FLOAT, i_getVarGF7, i_setVarGF7);
+	setVar(40, REG_INT, i_getVarWIN_W, NULL);
+	setVar(41, REG_INT, i_getVarWIN_H, NULL);
 
 	ichigoInit(&iState, "dvm");
 	ichigoSetVarTable(&iState, iVars, sizeof(iVars) / sizeof(iVars[0]));
