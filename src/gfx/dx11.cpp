@@ -168,28 +168,21 @@ struct Shader *drawShaderNew(const char *vert, const char *frag) {
 	HRESULT hr;
 	Shader *shader;
 
-	Asset *vs = assetOpen(vert);
-	if (!vs) {
-		logNorm("Could not open VS: %s\n", vert);
-		return nullptr;
-	}
-	Asset *ps = assetOpen(frag);
-	if (!ps) {
-		logNorm("Could not open PS: %s\n", frag);
-		assetClose(vs);
-		return nullptr;
-	}
-
 	VertexShader vertexShader;
 	auto vsIt = vsMap.find(vert);
 	if (vsIt != vsMap.end()) {
 		vertexShader = vsIt->second;
 	} else {
+		Asset *vs = assetOpen(vert);
+		if (!vs) {
+			logNorm("Could not open VS: %s\n", vert);
+			return nullptr;
+		}
+
 		hr = device->CreateVertexShader(vs->buffer, vs->bufferSize, nullptr, &vertexShader.vertex);
 		if (FAILED(hr)) {
 			logNorm("CreateVertexShader(%s) failed with %x\n", vert, hr);
 			assetClose(vs);
-			assetClose(ps);
 			return nullptr;
 		}
 
@@ -213,6 +206,8 @@ struct Shader *drawShaderNew(const char *vert, const char *frag) {
 		}
 
 		vsMap.insert({ vert, vertexShader });
+
+		assetClose(vs);
 	}
 
 	ID3D11PixelShader *pixelShader;
@@ -220,14 +215,20 @@ struct Shader *drawShaderNew(const char *vert, const char *frag) {
 	if (psIt != psMap.end()) {
 		pixelShader = psIt->second;
 	} else {
+		Asset *ps = assetOpen(frag);
+		if (!ps) {
+			logNorm("Could not open PS: %s\n", frag);
+			return nullptr;
+		}
+
 		hr = device->CreatePixelShader(ps->buffer, ps->bufferSize, nullptr, &pixelShader);
 		if (FAILED(hr)) {
 			logNorm("CreateVertexShader(%s) failed with %x\n", vert, hr);
-			assetClose(vs);
-			assetClose(ps);
 			return nullptr;
 		}
 		psMap.insert({ frag, pixelShader });
+
+		assetClose(ps);
 	}
 
 	shader = new Shader;
@@ -859,6 +860,7 @@ static void createTargetSurface(TargetSurface &surface) {
 	surface.color.d3dResourceView = shaderResourceView;
 	surface.color.w = realWinW;
 	surface.color.h = realWinH;
+	surface.color.refs = 1;
 	//surface.color.flags |= TEXTURE_POINT;
 
 	textureDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -875,9 +877,18 @@ static void createTargetSurface(TargetSurface &surface) {
 	surface.depthStencil.w = realWinW;
 	surface.depthStencil.h = realWinH;
 	surface.depthStencil.flags |= TEXTURE_POINT;
+	surface.depthStencil.refs = 1;
 }
 
-#define TITLE L"Dreaming Memories"
+static void releaseTexture(struct Texture *texture);
+
+static void deleteTargetSurface(TargetSurface &surface) {
+	surface.depthStencilView->Release();
+	releaseTexture(&surface.depthStencil);
+	surface.colorView->Release();
+	releaseTexture(&surface.color);
+}
+
 void drawDriverInit(void) {
 	drawVmApi = 1;
 	winW = 854;
@@ -1094,10 +1105,97 @@ void drawDriverFini(void) {
 	removeDrawUpdate(engineSettings->draw2DHiRes);
 	removeDrawUpdate(engineSettings->drawRttEnd);
 	removeDrawUpdate(9999); /* drawEnd */
+
+	deleteTargetSurface(surface1);
+	deleteTargetSurface(surface2);
+
+	depthStencil3D->Release();
+	depthStencil3DNoWrite->Release();
+	depthStencil2D->Release();
+
+	for (int i = 0; i < BLEND_N; i++) {
+		if (blendStates[i]) {
+			blendStates[i]->Release();
+		}
+	}
+
+	linearSampler->Release();
+	pointSampler->Release();
+	rasterize2D->Release();
+	rasterize3D->Release();
+	rasterize3DInvert->Release();
+
+	for (int i = 0; i < SHADER_STD_N; i++) {
+		drawShaderDelete(stdShaders[i]);
+	}
+
+	streamVertexBuffer->Release();
+	streamIndexBuffer->Release();
+	stdConstantVSBuffer->Release();
+	stdConstantVSAnimBuffer->Release();
+	stdConstantPSBuffer->Release();
+	stdConstantPSSceneBuffer->Release();
+
+	framebufferView->Release();
+	framebuffer->Release();
+	swapChain->Release();
+
+	for (auto it = vsMap.begin(); it != vsMap.end(); ++it) {
+		VertexShader &vs = it->second;
+		vs.inputLayout->Release();
+		vs.vertex->Release();
+	}
+	for (auto it = psMap.begin(); it != psMap.end(); ++it) {
+		ID3D11PixelShader *ps = it->second;
+		ps->Release();
+	}
+	vsMap.clear();
+	psMap.clear();
+
+#ifndef RELEASE
+	ID3D11Debug *debug;
+	HRESULT hr = device->QueryInterface<ID3D11Debug>(&debug);
+	if (SUCCEEDED(hr)) {
+		debug->ReportLiveDeviceObjects(D3D11_RLDO_DETAIL | D3D11_RLDO_IGNORE_INTERNAL);
+		debug->Release();
+	}
+#endif
+
+	device->Release();
+	deviceContext->Release();
+
+	SDL_DestroyWindow(window);
 }
 
 
 void drawSetResolution(int w, int h) {
+	SDL_SetWindowSize(window, w, h);
+	realWinW = w;
+	realWinH = h;
+
+	int mw, mh;
+	drawGetMonitorResolution(&mw, &mh);
+	SDL_SetWindowBordered(window, static_cast<SDL_bool>(mw != w || mh != h));
+	SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+
+	deviceContext->OMSetRenderTargets(0, NULL, NULL);
+	deleteTargetSurface(surface1);
+	deleteTargetSurface(surface2);
+	createTargetSurface(surface1);
+	createTargetSurface(surface2);
+
+	framebufferView->Release();
+	framebuffer->Release();
+	HRESULT hr = swapChain->ResizeBuffers(2, w, h, DXGI_FORMAT_B8G8R8A8_UNORM, 0);
+	if (FAILED(hr)) {
+		fail("ResizeBuffers failed with: %x\n", hr);
+	}
+
+	swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void **>(&framebuffer));
+	hr = device->CreateRenderTargetView(framebuffer, nullptr, &framebufferView);
+	if (FAILED(hr)) {
+		fail("CreateRenderTargetView failed with: %x\n", hr);
+	}
 }
 
 void showError(const char *title, const char *message) {
@@ -1157,6 +1255,17 @@ struct Texture *loadTextureCube(const char *name) {
 	return nullptr; // TODO
 }
 
+static void releaseTexture(struct Texture *texture) {
+	ID3D11ShaderResourceView *resourceView = static_cast<ID3D11ShaderResourceView *>(texture->d3dResourceView);
+	if (resourceView)
+		resourceView->Release();
+	ID3D11Texture2D *texture2D = static_cast<ID3D11Texture2D *>(texture->d3dTexture);
+	texture2D->Release();
+
+	texture->d3dResourceView = NULL;
+	texture->d3dTexture = NULL;
+}
+
 void deleteTexture(struct Texture *texture) {
 	if (!texture)
 		return;
@@ -1165,9 +1274,6 @@ void deleteTexture(struct Texture *texture) {
 	if (texture->refs > 0)
 		return;
 
-	ID3D11ShaderResourceView *resourceView = static_cast<ID3D11ShaderResourceView *>(texture->d3dResourceView);
-	resourceView->Release();
-	ID3D11Texture2D *texture2D = static_cast<ID3D11Texture2D *>(texture->d3dTexture);
-	texture2D->Release();
+	releaseTexture(texture);
 	delete texture;
 }

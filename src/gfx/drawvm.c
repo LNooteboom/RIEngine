@@ -657,6 +657,11 @@ static void drawVmEndScene(void) {
 		deleteTexture(tl->tex);
 		tl->tex = NULL;
 	}
+	for (unsigned int i = 0; i < vecCount(&poseList); i++) {
+		struct DrawVmPoseFileList *pl = vecAt(&poseList, i);
+		deletePoseFile(pl->lpf);
+		pl->lpf = NULL;
+	}
 
 	/* Clear layer list */
 	for (int i = 0; i < DVM_N_LAYERS; i++) {
@@ -1186,6 +1191,7 @@ void drawVmInit(void) {
 }
 
 void drawVmFini(void) {
+	drawVmEndScene();
 	vecDestroy(&poseList);
 	vecDestroy(&texList);
 	removeUpdate(UPDATE_UI, drawVmUpdateAll);

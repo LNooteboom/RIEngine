@@ -607,11 +607,11 @@ void drawInit(void) {
 	cam3DRotate(0, 0, 10, 0, 0, 0);
 }
 void drawFini(void) {
-	drawDriverFini();
 	ttfFini();
 	drawVmFini();
 	anim3DFini();
 	HTDestroy(&modelTable);
+	drawDriverFini();
 }
 
 void tfSetRotation3D(struct Transform *tf, float rx, float ry, float rz) {
