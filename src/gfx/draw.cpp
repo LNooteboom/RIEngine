@@ -30,6 +30,7 @@ float fogMin, fogMax;
 int drawFlushes;
 
 Mat cam3DMatrix;
+Mat cam3DProjMatrix;
 Vec3 cam3DPos;
 
 static struct HashTable modelTable;
@@ -48,6 +49,16 @@ void cam3DRotate(float x, float y, float z, float rx, float ry, float rz) {
 	m.translate(Vec3{ -x, -y, -z });
 	cam3DMatrix = (Mat::fromRotation(Vec4::eulerAngles(rx, 0, 0)) * Mat::fromRotation(Vec4::eulerAngles(0, ry, 0)) * Mat::fromRotation(Vec4::eulerAngles(0, 0, rz))) * m;
 	cam3DPos = Vec3{ x, y, z };
+}
+
+void cam3DProjPersp(float fov, float nr, float fr) {
+	cam3DProjMatrix = Mat::perspective(fov, (float)rttIntW / rttIntH, nr, fr);
+	drawUpdateFrustumPersp(fov, nr, fr);
+}
+
+void cam3DProjOrtho(float l, float r, float t, float b, float n, float f) {
+	cam3DProjMatrix = Mat::ortho(l, r, t, b, n, f);
+	drawUpdateFrustumOrtho(l, r, t, b, n, f);
 }
 
 void camReset(void) {

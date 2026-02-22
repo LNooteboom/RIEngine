@@ -51,16 +51,16 @@ struct AABB {
 
 static Frustum curFrustum;
 
-void drawUpdateFrustum(const Mat *projMat) {
+void drawUpdateFrustumPersp(float fov, float fnear, float ffar) {
 	Vec3 position{ cam3DPos.x, cam3DPos.y, cam3DPos.z };
 	Vec3 right{ Vec3{ cam3DMatrix.m[0], cam3DMatrix.m[4], cam3DMatrix.m[8] }.normalized() };
 	Vec3 up{ Vec3{ cam3DMatrix.m[1], cam3DMatrix.m[5], cam3DMatrix.m[9] }.normalized() };
 	Vec3 forward{ Vec3{ -cam3DMatrix.m[2], -cam3DMatrix.m[6], -cam3DMatrix.m[10] }.normalized() };
 
-	const float zNear = CAM_3D_NEAR;
-	const float zFar = CAM_3D_FAR;
+	const float zNear = fnear;
+	const float zFar = ffar;
 	const float aspect = (float)rttIntW / rttIntH;
-	const float halfVSide = zFar * tanf(cam3DFov * 0.5f);
+	const float halfVSide = zFar * tanf(fov * 0.5f);
 	const float halfHSide = halfVSide * aspect;
 	const Vec3 frontMultFar = forward * zFar;
 
@@ -70,6 +70,19 @@ void drawUpdateFrustum(const Mat *projMat) {
 	curFrustum.leftFace = { position, Vec3::cross(up, frontMultFar + right * halfHSide) };
 	curFrustum.topFace = { position, Vec3::cross(right, frontMultFar - up * halfVSide) };
 	curFrustum.bottomFace = { position, Vec3::cross(frontMultFar + up * halfVSide, right) };
+}
+void drawUpdateFrustumOrtho(float l, float r, float t, float b, float n, float f) {
+	Vec3 position{ cam3DPos.x, cam3DPos.y, cam3DPos.z };
+	Vec3 right{ Vec3{ cam3DMatrix.m[0], cam3DMatrix.m[4], cam3DMatrix.m[8] }.normalized() };
+	Vec3 up{ Vec3{ cam3DMatrix.m[1], cam3DMatrix.m[5], cam3DMatrix.m[9] }.normalized() };
+	Vec3 forward{ Vec3{ -cam3DMatrix.m[2], -cam3DMatrix.m[6], -cam3DMatrix.m[10] }.normalized() };
+
+	curFrustum.nearFace = { position + forward * n, forward };
+	curFrustum.farFace = { position + forward * f, -forward };
+	curFrustum.rightFace = { position + right * r, -right };
+	curFrustum.leftFace = { position + right * l, right };
+	curFrustum.topFace = { position + up * t, -up };
+	curFrustum.bottomFace = { position + up * b, up };
 }
 
 bool drawModelInFrustum(struct Model *m) {

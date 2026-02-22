@@ -347,7 +347,7 @@ static void doSwitchScene(void) {
 
 	/* Reset camera */
 	camX = camY = 0;
-	cam3DFov = DEG2RAD(60);
+	cam3DProjPersp(DEG2RAD(60), 0.1f, 200.0f);
 	cam3DLook(0, 0, 0, 0, 0, -1, 0, 1, 0);
 	gameSpeed = 1;
 

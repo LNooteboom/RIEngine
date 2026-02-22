@@ -74,6 +74,7 @@ struct ALIGN_MAT_DECL Mat {
 	static Mat fromTranslation(const Vec &v);
 	static Mat fromScale(const Vec &v);
 	static Mat perspective(float fovy, float aspect, float fnear, float ffar);
+	static Mat ortho(float l, float r, float t, float b, float n, float f);
 #endif
 };
 
@@ -518,6 +519,18 @@ static inline Mat *matPerspective(Mat *out, float fovy, float aspect, float fnea
 	out->m[10] = ffar * fn;
 	out->m[11] = -1.0f;
 	out->m[14] = fnear * ffar * fn;
+	return out;
+}
+
+static inline Mat *matOrtho(Mat *out, float l, float r, float t, float b, float n, float f) {
+	matIdent(out, 0.0f);
+	out->m[0] = 2 / (r - l);
+	out->m[5] = 2 / (t - b);
+	out->m[10] = 2 / (f - n);
+	out->m[12] = -((r + l) / (r - l));
+	out->m[13] = -((t + b) / (t - b));
+	out->m[14] = ((f + n) / (f - n));
+	out->m[15] = 1;
 	return out;
 }
 

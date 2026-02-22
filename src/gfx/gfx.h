@@ -24,7 +24,8 @@ void anim3DFini(void);
 
 void drawSetAnimUbo(void *data, size_t dataSize);
 
-void drawUpdateFrustum(const struct Mat *projMat);
+void drawUpdateFrustumPersp(float fov, float fnear, float ffar);
+void drawUpdateFrustumOrtho(float l, float r, float t, float b, float n, float f);
 
 #ifdef __cplusplus
 }

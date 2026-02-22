@@ -167,14 +167,12 @@ extern struct DwState drawState;
 
 struct Shader;
 
-#define CAM_3D_NEAR 0.1f
-#define CAM_3D_FAR 200.0f
-
 extern float camX;
 extern float camY;
 extern Mat cam3DMatrix;
 extern Vec3 cam3DPos;
-extern float cam3DFov;
+extern Mat cam3DProjMatrix;
+
 extern uint32_t clearColor;
 extern unsigned int winW;
 extern unsigned int winH;
@@ -298,6 +296,8 @@ void setLight(struct Light *l, float x, float y, float z, uint32_t color, float 
 
 void cam3DLook(float x, float y, float z, float dx, float dy, float dz, float upx, float upy, float upz);
 void cam3DRotate(float x, float y, float z, float rx, float ry, float rz);
+void cam3DProjPersp(float fov, float nr, float fr);
+void cam3DProjOrtho(float l, float r, float t, float b, float n, float f);
 void camReset(void);
 
 void drawGetMonitorResolution(int *w, int *h);

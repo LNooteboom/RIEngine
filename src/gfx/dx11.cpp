@@ -97,7 +97,6 @@ struct VertexShader {
 static Mat cam3DOvMat;
 static Mat cam2DMat;
 static Mat cam2DUiMat;
-static Mat proj3DMat;
 static Mat identMat{ 1.0f };
 
 static SDL_Window *window;
@@ -330,9 +329,6 @@ static void drawStart(void *arg) {
 	/* Update 3D overlay cam mat */
 	cam3DOvMat = Mat::fromScale(Vec3{ 2.0f / rttW, -2.0f / rttH, 1 });
 	cam3DOvMat.translate(Vec3{ -camX, -camY, 0 });
-	/* 3D */
-	proj3DMat = Mat::perspective(cam3DFov, (float)rttIntW / rttIntH, CAM_3D_NEAR, CAM_3D_FAR);
-	drawUpdateFrustum(&proj3DMat);
 
 	setScenePSConstants();
 
@@ -589,7 +585,7 @@ static void drawSetConstants(Mat *model) {
 	StdConstantVS *cvs = static_cast<StdConstantVS *>(stdConstantVSMappedBuffer.pData);
 	
 	if (drawState.drawPhase == DP_3D_BG) {
-		cvs->projection = proj3DMat;
+		cvs->projection = cam3DProjMatrix;
 		cvs->normMat = identMat;
 		Mat vw = cam3DMatrix;
 		vw.m[3] = vw.m[7] = vw.m[11] = 0;
@@ -604,7 +600,7 @@ static void drawSetConstants(Mat *model) {
 		Mat *view;
 		if (drawState.drawPhase <= DP_3D_NO_CULL) {
 			view = &cam3DMatrix;
-			cvs->projection = proj3DMat;
+			cvs->projection = cam3DProjMatrix;
 			
 		} else if (drawState.drawPhase == DP_BACKBUFFER) {
 			view = &cam2DUiMat;
@@ -884,6 +880,8 @@ void drawDriverInit(void) {
 	winH = 480;
 	realWinW = engineSettings->resW;
 	realWinH = engineSettings->resH;
+
+	SetProcessDPIAware();
 
 	window = SDL_CreateWindow(engineSettings->gameTitle, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, realWinW, realWinH, 0);
 	if (!window) {

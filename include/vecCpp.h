@@ -186,6 +186,11 @@ inline Mat Mat::perspective(float fovy, float aspect, float fnear, float ffar) {
 	matPerspective(&ret, fovy, aspect, fnear, ffar);
 	return ret;
 }
+inline Mat Mat::ortho(float l, float r, float t, float b, float n, float f) {
+	Mat ret;
+	matOrtho(&ret, l, r, t, b, n, f);
+	return ret;
+}
 
 #endif // __cplusplus
 
