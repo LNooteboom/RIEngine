@@ -539,7 +539,7 @@ static inline Vec *matGetRotation(Vec *out, const Mat *mat) {
 
 	float tr = m[0] + m[5] + m[10];
 	if (tr >= 0.0f) {
-		float s = sqrt(tr + 1.0f);
+		float s = sqrtf(tr + 1.0f);
 		float is = 0.5f / s;
 		out->x = (m[1 * 4 + 2] - m[2 * 4 + 1]) * is;
 		out->y = (m[2 * 4 + 0] - m[0 * 4 + 2]) * is;
@@ -553,7 +553,7 @@ static inline Vec *matGetRotation(Vec *out, const Mat *mat) {
 	if (m[2 * 4 + 2] > m[i * 4 + i]) i = 2;
 
 	if (i == 0) {
-		float s = sqrt(m[0] - (m[5] + m[10]) + 1);
+		float s = sqrtf(m[0] - (m[5] + m[10]) + 1);
 		float is = 0.5f / s;
 		out->x = 0.5f * s;
 		out->y = (m[1 * 4 + 0] + m[0 * 4 + 1]) * is;
@@ -561,7 +561,7 @@ static inline Vec *matGetRotation(Vec *out, const Mat *mat) {
 		out->w = (m[1 * 4 + 2] - m[2 * 4 + 1]) * is;
 		return out;
 	} else if (i == 1) {
-		float s = sqrt(m[5] - (m[10] + m[0]) + 1);
+		float s = sqrtf(m[5] - (m[10] + m[0]) + 1);
 		float is = 0.5f / s;
 		out->x = (m[1 * 4 + 0] + m[0 * 4 + 1]) * is;
 		out->y = 0.5f * s;
@@ -569,7 +569,7 @@ static inline Vec *matGetRotation(Vec *out, const Mat *mat) {
 		out->w = (m[2 * 4 + 0] - m[0 * 4 + 2]) * is;
 		return out;
 	} else {
-		float s = sqrt(m[10] - (m[0] + m[5]) + 1);
+		float s = sqrtf(m[10] - (m[0] + m[5]) + 1);
 		float is = 0.5f / s;
 		out->x = (m[0 * 4 + 2] + m[2 * 4 + 0]) * is;
 		out->y = (m[2 * 4 + 1] + m[1 * 4 + 2]) * is;

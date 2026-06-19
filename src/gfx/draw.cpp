@@ -1,4 +1,5 @@
 #include <gfx/draw.h>
+#include <gfx/draw3d.h>
 #include <SDL2/SDL.h>
 #include <assets.h>
 #include <mem.h>
@@ -7,76 +8,23 @@
 #include <gfx/drawvm.h>
 #include "gfx.h"
 
-float cam3DX, cam3DY, cam3DZ;
-float cam3DRX, cam3DRY, cam3DRZ;
-float cam3DFov = DEG2RAD(70);
-float camX;
-float camY;
-uint32_t clearColor;
-unsigned int winW;
-unsigned int winH;
-unsigned int realWinW;
-unsigned int realWinH;
-
-int rttX, rttY;
-unsigned int rttW = 640, rttH = 480;
-unsigned int rttIntW = 640, rttIntH = 480;
-
-struct Light dirLight;
-struct Light pointLights[DRAW_MAX_POINTLIGHTS];
-
-uint32_t fogColor;
-float fogMin, fogMax;
-int drawFlushes;
-
-Mat cam3DMatrix;
-Mat cam3DProjMatrix;
-Vec3 cam3DPos;
+unsigned int windowWidth;
+unsigned int windowHeight;
 
 static struct HashTable modelTable;
-
 
 /*
  * MATRIX
  */
 
-void cam3DLook(float x, float y, float z, float dx, float dy, float dz, float upx, float upy, float upz) {
-	cam3DMatrix = Mat::look(Vec3{ x, y, z }, Vec3{ dx, dy, dz }, Vec3{ upx, upy, upz });
-	cam3DPos = Vec3{ x, y, z };
-}
-void cam3DRotate(float x, float y, float z, float rx, float ry, float rz) {
-	Mat m{ 1.0f };
-	m.translate(Vec3{ -x, -y, -z });
-	cam3DMatrix = (Mat::fromRotation(Vec4::eulerAngles(rx, 0, 0)) * Mat::fromRotation(Vec4::eulerAngles(0, ry, 0)) * Mat::fromRotation(Vec4::eulerAngles(0, 0, rz))) * m;
-	cam3DPos = Vec3{ x, y, z };
-}
-
-void cam3DProjPersp(float fov, float nr, float fr) {
-	cam3DProjMatrix = Mat::perspective(fov, (float)rttIntW / rttIntH, nr, fr);
-	drawUpdateFrustumPersp(fov, nr, fr);
-}
-
-void cam3DProjOrtho(float l, float r, float t, float b, float n, float f) {
-	cam3DProjMatrix = Mat::ortho(l, r, t, b, n, f);
-	drawUpdateFrustumOrtho(l, r, t, b, n, f);
-}
-
-void camReset(void) {
-	cam3DLook(0, 0, 0, 0, 1, 0, 0, 0, 1);
-	cam3DFov = DEG2RAD(70);
-	clearColor = 0;
-	camX = camY = 0;
-	fogMin = 4096.0f;
-	fogMax = 8192.0f;
-	fogColor = 0xFFFFFF;
-}
-
 void drawTranslate3D(float x, float y, float z) {
 	drawState.matStack[drawState.matStackIdx].translate(Vec3{ x, y, z });
 }
 
+#define ROTATION_3D (drawState.passes[drawState.currentPass].flags & DRAW_PASS_FLAG_3D_ROTATION)
+
 void drawRotateX(float r) {
-	if (drawState.drawPhase <= DP_3D_NO_CULL)
+	if (ROTATION_3D)
 		r = -r;
 	float c = cosf(r), s = sinf(r);
 	Mat m{ 1.0f };
@@ -88,7 +36,7 @@ void drawRotateX(float r) {
 	drawState.normMatValid = false;
 }
 void drawRotateY(float r) {
-	if (drawState.drawPhase <= DP_3D_NO_CULL)
+	if (ROTATION_3D)
 		r = -r;
 	float c = cosf(r), s = sinf(r);
 	Mat m{ 1.0f };
@@ -100,7 +48,7 @@ void drawRotateY(float r) {
 	drawState.normMatValid = false;
 }
 void drawRotateZ(float r) {
-	if (drawState.drawPhase <= DP_3D_NO_CULL)
+	if (ROTATION_3D)
 		r = -r;
 	float c = cosf(r), s = sinf(r);
 	Mat m{ 1.0f };
@@ -113,7 +61,7 @@ void drawRotateZ(float r) {
 }
 void drawRotateXYZ(float rx, float ry, float rz) {
 	float r[3];
-	if (drawState.drawPhase <= DP_3D_NO_CULL) {
+	if (ROTATION_3D) {
 		r[0] = -rx;
 		r[1] = -ry;
 		r[2] = -rz;
@@ -145,7 +93,7 @@ void drawTransformRounded(struct Transform *tf) {
 }
 void drawTransformRotation(struct Transform *tf) {
 	Mat m{ 1.0f };
-	if (drawState.drawPhase <= DP_3D_NO_CULL) {
+	if (ROTATION_3D) {
 		m.m[0] = tf->rotReal;
 		m.m[4] = tf->rotImag;
 		m.m[1] = -tf->rotImag;
@@ -265,8 +213,9 @@ void drawRectBillboard(float w, float h) {
 
 	drawPreflush(4, 6);
 
-	float rx = cam3DMatrix.m[0], ry = cam3DMatrix.m[4], rz = cam3DMatrix.m[8];
-	float ux = cam3DMatrix.m[1], uy = cam3DMatrix.m[5], uz = cam3DMatrix.m[9];
+	const Mat *camMat = drawState.passes[drawState.currentPass].viewMatrix;
+	float rx = camMat->m[0], ry = camMat->m[4], rz = camMat->m[8];
+	float ux = camMat->m[1], uy = camMat->m[5], uz = camMat->m[9];
 
 	float w2 = w / 2, h2 = h / -2;
 	drawVertex(rx * -w2 + ux * -h2, ry * -w2 + uy * -h2, rz * -w2 + uz * -h2, drawState.srcX, drawState.srcY, col[0][0], col[0][1], col[0][2], col[0][3]);
@@ -444,11 +393,7 @@ void drawReset(void) {
 	drawState.matStackIdx = 0;
 	drawMatIdentity();
 
-	if (drawState.drawPhase <= DP_3D_OVERLAY) {
-		drawShaderUseStd(SHADER_3D);
-	} else {
-		drawShaderUseStd(SHADER_2D);
-	}
+	drawShaderUseStd(drawState.passes[drawState.currentPass].stdShader);
 
 	for (int i = 0; i < drawState.nTex; i++) {
 		//drawTexture(i, NULL);
@@ -570,8 +515,8 @@ struct Model *getModel(const char *name) {
 }
 
 void clearLights(void) {
-	memset(&dirLight, 0, sizeof(dirLight));
-	memset(&pointLights[0], 0, sizeof(struct Light) * DRAW_MAX_POINTLIGHTS);
+	//memset(&dirLight, 0, sizeof(dirLight));
+	//memset(&pointLights[0], 0, sizeof(struct Light) * DRAW_MAX_POINTLIGHTS);
 }
 
 static const float lightLinear[LIGHT_N] = { 0.22f, 0.14f, 0.09f, 0.07f, 0.045f, 0.027f };
@@ -597,6 +542,78 @@ void setLight(struct Light *l, float x, float y, float z, uint32_t color, float 
 	l->quadratic = lightQuad[strength];
 }
 
+void drawGetProjection(Mat *m) {
+	struct DrawPass *pass = &drawState.passes[drawState.currentPass];
+	switch (pass->projectionMode) {
+	case PROJECTION_IDENT:
+	default:
+		matIdent(m, 1.0f);
+		break;
+	case PROJECTION_PERSPECTIVE:
+		*m = Mat::perspective(pass->proj.perspective.fovy, (float)pass->viewportW / pass->viewportH,
+			pass->proj.perspective.nr, pass->proj.perspective.fr);
+		break;
+	case PROJECTION_ORTHO:
+		*m = Mat::ortho(pass->proj.ortho.l, pass->proj.ortho.r, pass->proj.ortho.t, pass->proj.ortho.b,
+			pass->proj.ortho.n, pass->proj.ortho.f);
+		break;
+	case PROJECTION_CUSTOM:
+		*m = *pass->proj.custom;
+		break;
+	}
+}
+
+void drawSetPipeline(int nPasses, struct DrawPass *passes) {
+	drawState.nPasses = nPasses;
+	drawState.passes = passes;
+}
+void drawFullFrame(void) {
+	drawState.totalFlushes = 0;
+	for (drawState.currentPass = 0; drawState.currentPass < drawState.nPasses; drawState.currentPass++) {
+		struct DrawPass *pass = &drawState.passes[drawState.currentPass];
+		if (pass->active) {
+			drawReset();
+			drawState.zWrite = pass->depthStencilMode == DEPTH_STENCIL_DEPTH;
+			drawSetTarget();
+			drawUpdateFrustum(pass);
+			pass->draw(pass);
+			drawFlush();
+		}
+	}
+	drawEnd();
+}
+
+void drawSetPass2D(struct DrawPass *pass) {
+	memset(pass, 0, sizeof(pass));
+	pass->target = -1;
+	pass->stdShader = SHADER_2D;
+	pass->viewportW = windowWidth;
+	pass->viewportH = windowHeight;
+	pass->samplerMode = SAMPLER_LINEAR;
+	pass->fogMin = 4096.0f;
+	pass->fogMax = 8192.0f;
+	pass->fogColor = 0xFFFFFF;
+}
+
+void drawSetPass3D(struct DrawPass *pass) {
+	memset(pass, 0, sizeof(pass));
+	pass->target = -1;
+	pass->stdShader = SHADER_3D;
+	pass->viewportW = windowWidth;
+	pass->viewportH = windowHeight;
+	pass->samplerMode = SAMPLER_LINEAR;
+	pass->cullMode = CULL_FRONT;
+	pass->depthStencilMode = DEPTH_STENCIL_DEPTH;
+	pass->projectionMode = PROJECTION_PERSPECTIVE;
+	pass->proj.perspective.fovy = DEG2RAD(70);
+	pass->proj.perspective.fr = 1000.0f;
+	pass->proj.perspective.nr = 0.1f;
+	pass->flags = DRAW_PASS_FLAG_3D;
+	pass->fogMin = 4096.0f;
+	pass->fogMax = 8192.0f;
+	pass->fogColor = 0xFFFFFF;
+}
+
 extern "C" {
 	void drawInit(void);
 	void drawFini(void);
@@ -606,16 +623,9 @@ void drawInit(void) {
 	drawDriverInit();
 	HTCreate(&modelTable, 128);
 
-	rttW = rttIntW = winW = realWinW;
-	rttH = rttIntH = winH = realWinH;
-	rttX = 0;
-	rttY = winH / 2;
-
 	anim3DInit();
 	drawVmInit();
 	ttfInit();
-
-	cam3DRotate(0, 0, 10, 0, 0, 0);
 }
 void drawFini(void) {
 	ttfFini();

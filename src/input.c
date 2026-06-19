@@ -12,8 +12,8 @@ static SDL_GameController *gamepad;
 void getMousePos(float *x, float *y) {
 	int i, j;
 	SDL_GetMouseState(&i, &j);
-	*x = (float)i * winW / realWinW;
-	*y = (float)j * winH / realWinH;
+	*x = i;
+	*y = j;
 	/**x = ((float)i / winW * 2) - 1.0;
 	*y = -( ((float)j / winH * 2) - 1.0 );*/
 }

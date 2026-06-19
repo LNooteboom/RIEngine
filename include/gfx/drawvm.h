@@ -78,7 +78,7 @@ enum DrawVmInterpTarget {
 #define DVM_FLAG_DELETE_ALL (1 << 29)
 #define DVM_FLAG_TTF (1 << 30)
 
-#define DVM_N_LAYERS 48
+#define DVM_N_LAYERS 64
 #define DVM_N_INTERPS 4
 #define DVM_MAX_CHILDREN 8
 
@@ -152,6 +152,7 @@ void drawVmEventAll(int event);
 void drawVmTexture(struct DrawVm *d, int slot, const char *texture);
 void drawVmInterp(struct DrawVm *d, int slot, int target, float time, int mode, float a, float b, float c);
 void drawVmAddFile(const char *file);
+void drawVmDrawLayers(int first, int last);
 
 #ifdef __cplusplus
 } // extern "C"

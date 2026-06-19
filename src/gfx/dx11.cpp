@@ -1,4 +1,5 @@
 #include <gfx/draw.h>
+#include <gfx/draw3d.h>
 #include <gfx/drawvm.h>
 #include <gfx/ttf.h>
 #include <main.h>
@@ -265,14 +266,14 @@ static void doGamma(float *r, float *g, float *b) {
 	*b = 0.75f * (*b * *b) + 0.25f * *b * (*b * *b);
 }
 
-static void copyLight(StdConstantPSLight *dest, Light *l, bool point) {
+static void copyLight(struct DrawPass *pass, StdConstantPSLight *dest, Light *l, bool point) {
 	if (point) {
-		Vec4 v = Mat{ cam3DMatrix.m } * Vec4{ l->x, l->y, l->z, 1 };
+		Vec4 v = Mat{ pass->viewMatrix->m } * Vec4{ l->x, l->y, l->z, 1 };
 		dest->pos[0] = v.x;
 		dest->pos[1] = v.y;
 		dest->pos[2] = v.z;
 	} else {
-		Mat m = Mat{ cam3DMatrix.m };
+		Mat m = Mat{ pass->viewMatrix->m };
 		m.inverse3();
 		m = m.transposed();
 		Vec4 v = m * Vec4{ l->x, l->y, l->z, 0 };
@@ -296,12 +297,13 @@ static void copyLight(StdConstantPSLight *dest, Light *l, bool point) {
 	dest->quadratic = l->quadratic;
 }
 static void setScenePSConstants() {
+	struct DrawPass *pass = &drawState.passes[drawState.currentPass];
 	D3D11_MAPPED_SUBRESOURCE mappedBuffer;
 	deviceContext->Map(stdConstantPSSceneBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedBuffer);
 	StdConstantPSScene *scene = static_cast<StdConstantPSScene *>(mappedBuffer.pData);
-	copyLight(&scene->dirLight, &dirLight, false);
+	copyLight(pass, &scene->dirLight, pass->dirLight, false);
 	for (int i = 0; i < DRAW_MAX_POINTLIGHTS; i++) {
-		copyLight(&scene->pointLights[i], &pointLights[i], true);
+		copyLight(pass, &scene->pointLights[i], &pass->pointLights[i], true);
 	}
 	float fog[3] = {
 		((fogColor >> 16) & 0xFF) / 255.0f,
@@ -317,147 +319,7 @@ static void setScenePSConstants() {
 	deviceContext->Unmap(stdConstantPSSceneBuffer, 0);
 }
 
-static void drawStart(void *arg) {
-	(void)arg;
-	drawFlushes = 0;
-	drawState.drawPhase = DP_3D_BG;
-
-	/* Update 2D cam mat */
-	cam2DMat = Mat::fromScale(Vec3{ 2.0f / rttW, -2.0f / rttH, 1.0f / 512 });
-	cam2DMat.translate(Vec3{ -camX, -camY, 256 });
-	cam2DUiMat = Mat::fromScale(Vec3{ 2.0f / winW, -2.0f / winH, 1.0f / 2000 });
-	cam2DUiMat.translate(Vec3{ 0, winH / -2.0f, 1000 });
-	/* Update 3D overlay cam mat */
-	cam3DOvMat = Mat::fromScale(Vec3{ 2.0f / rttW, -2.0f / rttH, 1 });
-	cam3DOvMat.translate(Vec3{ -camX, -camY, 0 });
-
-	setScenePSConstants();
-
-	ID3D11ShaderResourceView *nullView = nullptr;
-	deviceContext->PSSetShaderResources(0, 1, &nullView);
-
-	deviceContext->RSSetState(rasterize3D);
-	D3D11_VIEWPORT viewport = { 0, 0, (float)rttIntW, (float)rttIntH, 0, 1 };
-	deviceContext->RSSetViewports(1, &viewport);
-	deviceContext->OMSetRenderTargets(1, &surface1.colorView, surface1.depthStencilView);
-	deviceContext->OMSetDepthStencilState(depthStencil3D, 0);
-	drawState.zWrite = true;
-
-	float clearCol[4] = {
-		((clearColor >> 16) & 0xFF) / 255.0f,
-		((clearColor >> 8) & 0xFF) / 255.0f,
-		((clearColor >> 0) & 0xFF) / 255.0f,
-		1.0f
-	};
-	doGamma(&clearCol[0], &clearCol[1], &clearCol[2]);
-	deviceContext->ClearRenderTargetView(surface1.colorView, clearCol);
-	deviceContext->ClearDepthStencilView(surface1.depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-}
-
-static void drawStart3D(void *arg) {
-	(void)arg;
-	drawFlush();
-	drawState.drawPhase = DP_3D;
-}
-
-static void drawDisableCull(void *arg) {
-	(void)arg;
-	drawFlush();
-	drawState.drawPhase = DP_3D_NO_CULL;
-	deviceContext->RSSetState(rasterize2D);
-}
-
-static void draw3DSetOverlay(void *arg) {
-	(void)arg;
-	drawFlush();
-	drawState.drawPhase = DP_3D_OVERLAY;
-	deviceContext->OMSetDepthStencilState(depthStencil2D, 0);
-	drawState.zWrite = false;
-}
-
-static void draw2DLowRes(void *arg) {
-	(void)arg;
-	drawFlush();
-	drawState.drawPhase = DP_2D_LOWRES;
-
-	ID3D11ShaderResourceView *nullView = nullptr;
-	deviceContext->PSSetShaderResources(0, 1, &nullView);
-
-	//D3D11_VIEWPORT viewport = { 0, 0, rttIntW, rttIntH, 0, 1 };
-	//deviceContext->RSSetViewports(1, &viewport);
-	deviceContext->OMSetRenderTargets(1, &surface2.colorView, surface2.depthStencilView);
-
-	float clearCol[4] = {0.2f,0.0f,0.0f,1.0f};
-	deviceContext->ClearRenderTargetView(surface2.colorView, clearCol);
-	deviceContext->ClearDepthStencilView(surface2.depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-
-	drawReset();
-	drawShaderUseStd(SHADER_3D_POST);
-	drawTexture(0, &surface1.color);
-	//drawTexture(1, &fbo1Depth);
-	drawSrcRect(0, 0, rttIntW, rttIntH);
-	drawMatIdentity();
-
-	drawTranslate(camX, camY);
-	drawScale(1, 1);
-	//drawColor(1, 1, 1, 1);
-	drawRect(rttW, rttH);
-}
-
-static void draw2DHiRes(void *arg) {
-	(void)arg;
-	drawFlush();
-	drawState.drawPhase = DP_2D_HIRES;
-
-	ID3D11ShaderResourceView *nullView = nullptr;
-	deviceContext->PSSetShaderResources(0, 1, &nullView);
-	D3D11_VIEWPORT viewport = { 0, 0, rttW * (float)realWinW / winW, rttH * (float)realWinH / winH, 0, 1 };
-	deviceContext->RSSetViewports(1, &viewport);
-	deviceContext->OMSetRenderTargets(1, &surface1.colorView, surface1.depthStencilView);
-	deviceContext->OMSetDepthStencilState(depthStencil3D, 0);
-
-	/* Copy fbo2 to fbo1, scaled up */
-	drawReset();
-	drawBlend(BLEND_REPLACE);
-	//drawShaderUse(&post3DShader);
-	drawShaderUseStd(SHADER_2D);
-	drawTexture(0, &surface2.color);
-	//drawTexture(1, &fbo2Depth);
-	drawSrcRect(0, 0, rttIntW, rttIntH);
-	drawMatIdentity();
-
-	drawTranslate(camX, camY);
-	drawScale(1, 1);
-	drawRect(rttW, rttH);
-}
-
-static void drawRttEnd(void *arg) {
-	(void)arg;
-	drawFlush();
-	drawState.drawPhase = DP_BACKBUFFER;
-
-	ID3D11ShaderResourceView *nullView = nullptr;
-	deviceContext->PSSetShaderResources(0, 1, &nullView);
-
-	D3D11_VIEWPORT viewport = { 0, 0, (float)realWinW, (float)realWinH, 0, 1 };
-	deviceContext->RSSetViewports(1, &viewport);
-	deviceContext->OMSetRenderTargets(1, &framebufferView, nullptr);
-	float clearColor[4] = { 1, 1, 1, 1 };
-	deviceContext->ClearRenderTargetView(framebufferView, clearColor);
-
-	drawReset();
-	drawShaderUseStd(SHADER_2D);
-	drawTexture(0, &surface1.color);
-	//drawTexture(1, &fbo1Depth);
-	drawSrcRect(0, 0, rttW * (float)realWinW / winW, rttH * (float)realWinH / winH);
-	drawMatIdentity();
-	drawTranslate(rttX, rttY);
-	drawRect(rttW, rttH);
-}
-
-static void drawEnd(void *arg) {
-	(void)arg;
-	drawFlush();
+void drawEnd(void) {
 	swapChain->Present(0, 0);
 }
 
@@ -522,7 +384,7 @@ void drawShaderArgs(int n, float *args) {
 
 
 void drawZBufferWrite(bool enable) {
-	if (drawState.zWrite != enable && drawState.drawPhase < DP_3D_OVERLAY) {
+	if (drawState.zWrite != enable && drawState.passes[drawState.currentPass].depthStencilMode != DEPTH_STENCIL_DISABLE) {
 		drawFlush();
 		if (enable)
 			deviceContext->OMSetDepthStencilState(depthStencil3D, 0);
@@ -550,7 +412,7 @@ void drawWireframe(bool wf) {
 }
 
 void drawCullInvert(bool invert) {
-	if (drawState.cullInvert != invert && drawState.drawPhase == DP_3D) {
+	if (drawState.cullInvert != invert && drawState.passes[drawState.currentPass].cullMode != CULL_NONE) {
 		drawFlush();
 		if (invert)
 			deviceContext->RSSetState(rasterize3DInvert);
@@ -584,49 +446,28 @@ static void drawSetConstants(Mat *model) {
 	D3D11_MAPPED_SUBRESOURCE stdConstantVSMappedBuffer;
 	deviceContext->Map(stdConstantVSBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &stdConstantVSMappedBuffer);
 	StdConstantVS *cvs = static_cast<StdConstantVS *>(stdConstantVSMappedBuffer.pData);
-	
-	if (drawState.drawPhase == DP_3D_BG) {
-		cvs->projection = cam3DProjMatrix;
-		cvs->normMat = identMat;
-		Mat vw = cam3DMatrix;
-		vw.m[3] = vw.m[7] = vw.m[11] = 0;
-		vw.m[12] = vw.m[13] = vw.m[14] = 0;
-		vw.m[15] = 1;
-		if (model) {
-			cvs->modelView = vw * *model;
-		} else {
-			cvs->modelView = vw;
-		}
+	struct DrawPass *pass = &drawState.passes[drawState.currentPass];
+
+	/* Fill modelView */
+	if (model) {
+		cvs->modelView = *pass->viewMatrix * *model;
 	} else {
-		Mat *view;
-		if (drawState.drawPhase <= DP_3D_NO_CULL) {
-			view = &cam3DMatrix;
-			cvs->projection = cam3DProjMatrix;
-			
-		} else if (drawState.drawPhase == DP_BACKBUFFER) {
-			view = &cam2DUiMat;
-			cvs->projection = identMat;
-		} else if (drawState.drawPhase == DP_3D_OVERLAY) {
-			view = &cam3DOvMat;
-			cvs->projection = identMat;
-		} else {
-			view = &cam2DMat;
-			cvs->projection = identMat;
-		}
-		if (model) {
-			cvs->modelView = *view * *model;
-		} else {
-			cvs->modelView = *view;
-		}
-		if (drawState.drawPhase <= DP_3D_NO_CULL) {
-			Mat m{ cvs->modelView };
-			m.inverse3();
-			cvs->normMat = m.transposed();
-		} else {
-			cvs->normMat = identMat;
-		}
+		cvs->modelView = *pass->viewMatrix;
 	}
 
+	/* Fill normMat */
+	if (pass->flags & DRAW_PASS_FLAG_NORMAL_MATRIX) {
+		Mat m{ cvs->modelView };
+		m.inverse3();
+		cvs->normMat = m.transposed();
+	} else {
+		cvs->normMat = identMat;
+	}
+	
+	/* Fill projection */
+	drawGetProjection(&cvs->projection);
+
+	/* Args and color */
 	for (int i = 0; i < 8; i++) {
 		cvs->args[i] = shaderArgs[i];
 	}
@@ -670,7 +511,7 @@ static void drawSetConstants(Mat *model) {
 	}
 
 	deviceContext->VSSetConstantBuffers(0, 1, &stdConstantVSBuffer);
-	if (drawState.drawPhase <= DP_3D_NO_CULL) {
+	if (pass->flags & DRAW_PASS_FLAG_SCENE_CONSTANTS) {
 		ID3D11Buffer *buffers[2] = { stdConstantPSBuffer, stdConstantPSSceneBuffer };
 		deviceContext->PSSetConstantBuffers(0, 2, buffers);
 	} else {
@@ -728,8 +569,11 @@ void drawVertex3D(float x, float y, float z, float nx, float ny, float nz, float
 		return;
 
 	Vec4 norm{ nx, ny, nz, 0 };
-	if (drawState.drawPhase <= DP_3D_OVERLAY) {
+	struct DrawPass *pass = &drawState.passes[drawState.currentPass];
+	if (pass->flags & DRAW_PASS_FLAG_GAMMA) {
 		doGamma(&r, &g, &b);
+	}
+	if (pass->flags & DRAW_PASS_FLAG_NORMAL_MATRIX) {
 		if (!drawState.normMatValid) {
 			setNormMat();
 		}
@@ -823,14 +667,73 @@ void deleteModel(Model *m) {
 	buffer->Release();
 }
 
+void drawClear(uint32_t color) {
+	float clearCol[4] = {
+		((color >> 16) & 0xFF) / 255.0f,
+		((color >> 8) & 0xFF) / 255.0f,
+		((color >> 0) & 0xFF) / 255.0f,
+		1.0f
+	};
+	if (drawState.passes[drawState.currentPass].flags & DRAW_PASS_FLAG_GAMMA)
+		doGamma(&clearCol[0], &clearCol[1], &clearCol[2]);
+
+	TargetSurface *target = NULL;
+	if (drawState.passes[drawState.currentPass].target == 0) {
+		target = &surface1;
+	}
+	else if (drawState.passes[drawState.currentPass].target == 1) {
+		target = &surface2;
+	}
+	if (target) {
+		deviceContext->ClearRenderTargetView(target->colorView, clearCol);
+		deviceContext->ClearDepthStencilView(target->depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+	}
+	else {
+		deviceContext->ClearRenderTargetView(framebufferView, clearCol);
+	}
+}
+
+void drawSetTarget(void) {
+	struct DrawPass *pass = &drawState.passes[drawState.currentPass];
+
+	ID3D11ShaderResourceView *nullView = nullptr;
+	deviceContext->PSSetShaderResources(0, 1, &nullView);
+
+	if (pass->target == 0) {
+		deviceContext->OMSetRenderTargets(1, &surface1.colorView, surface1.depthStencilView);
+	}
+	else if (pass->target == 1) {
+		deviceContext->OMSetRenderTargets(1, &surface2.colorView, surface2.depthStencilView);
+	}
+	else {
+		deviceContext->OMSetRenderTargets(1, &framebufferView, nullptr);
+	}
+
+	switch (pass->depthStencilMode) {
+	case DEPTH_STENCIL_DISABLE: deviceContext->OMSetDepthStencilState(depthStencil2D, 0); break;
+	case DEPTH_STENCIL_DEPTH: deviceContext->OMSetDepthStencilState(depthStencil3D, 0); break;
+	case DEPTH_STENCIL_DEPTH_NO_WRITE: deviceContext->OMSetDepthStencilState(depthStencil3DNoWrite, 0); break;
+	}
+	
+
+	D3D11_VIEWPORT viewport = { pass->viewportX, pass->viewportY, pass->viewportW, pass->viewportH, 0, 1 };
+	deviceContext->RSSetViewports(1, &viewport);
+	
+	switch (pass->cullMode) {
+	case CULL_NONE: deviceContext->RSSetState(rasterize2D); break;
+	case CULL_BACK: deviceContext->RSSetState(rasterize3D); break;
+	case CULL_FRONT: deviceContext->RSSetState(rasterize3DInvert); break;
+	}
+}
+
 
 /*
  * INIT/FINI
  */
 static void createTargetSurface(TargetSurface &surface) {
 	D3D11_TEXTURE2D_DESC textureDesc = { 0 };
-	textureDesc.Width = realWinW;
-	textureDesc.Height = realWinH;
+	textureDesc.Width = windowWidth;
+	textureDesc.Height = windowHeight;
 	textureDesc.MipLevels = 1;
 	textureDesc.ArraySize = 1;
 	//textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -854,8 +757,8 @@ static void createTargetSurface(TargetSurface &surface) {
 		fail("CreateShaderResourceView with %x\n", hr);
 	}
 	surface.color.d3dResourceView = shaderResourceView;
-	surface.color.w = realWinW;
-	surface.color.h = realWinH;
+	surface.color.w = windowWidth;
+	surface.color.h = windowHeight;
 	surface.color.refs = 1;
 	//surface.color.flags |= TEXTURE_POINT;
 
@@ -870,8 +773,8 @@ static void createTargetSurface(TargetSurface &surface) {
 	if (FAILED(hr)) {
 		fail("CreateRenderTargetView with %x\n", hr);
 	}
-	surface.depthStencil.w = realWinW;
-	surface.depthStencil.h = realWinH;
+	surface.depthStencil.w = windowWidth;
+	surface.depthStencil.h = windowHeight;
 	surface.depthStencil.flags |= TEXTURE_POINT;
 	surface.depthStencil.refs = 1;
 }
@@ -887,14 +790,12 @@ static void deleteTargetSurface(TargetSurface &surface) {
 
 void drawDriverInit(void) {
 	drawVmApi = 1;
-	winW = 854;
-	winH = 480;
-	realWinW = engineSettings->resW;
-	realWinH = engineSettings->resH;
+	windowWidth = engineSettings->resW;
+	windowHeight = engineSettings->resH;
 
 	SetProcessDPIAware();
 
-	window = SDL_CreateWindow(engineSettings->gameTitle, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, realWinW, realWinH, 0);
+	window = SDL_CreateWindow(engineSettings->gameTitle, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, windowWidth, windowHeight, 0);
 	if (!window) {
 		fail("SDL_CreateWindow: %s\n", SDL_GetError());
 	}
@@ -1080,30 +981,9 @@ void drawDriverInit(void) {
 	createTargetSurface(surface1);
 	createTargetSurface(surface2);
 	surface2.color.flags |= TEXTURE_POINT;
-
-	/* Set the updates */
-	addDrawUpdate(0, drawStart, NULL);
-	addDrawUpdate(engineSettings->draw3DStart, drawStart3D, NULL);
-	addDrawUpdate(engineSettings->draw3DNoCull, drawDisableCull, NULL);
-	addDrawUpdate(engineSettings->draw3DOverlay, draw3DSetOverlay, NULL);
-	addDrawUpdate(engineSettings->draw2DLowRes, draw2DLowRes, NULL);
-	addDrawUpdate(engineSettings->draw2DHiRes, draw2DHiRes, NULL);
-	addDrawUpdate(engineSettings->drawRttEnd, drawRttEnd, NULL);
-	addDrawUpdate(9999, drawEnd, NULL);
-
-	cam3DRotate(0, 0, 10, 0, 0, 0);
 }
 
 void drawDriverFini(void) {
-	removeDrawUpdate(0); /* drawStart */
-	removeDrawUpdate(engineSettings->draw3DStart);
-	removeDrawUpdate(engineSettings->draw3DNoCull);
-	removeDrawUpdate(engineSettings->draw3DOverlay);
-	removeDrawUpdate(engineSettings->draw2DLowRes);
-	removeDrawUpdate(engineSettings->draw2DHiRes);
-	removeDrawUpdate(engineSettings->drawRttEnd);
-	removeDrawUpdate(9999); /* drawEnd */
-
 	deleteTargetSurface(surface1);
 	deleteTargetSurface(surface2);
 
@@ -1168,8 +1048,8 @@ void drawDriverFini(void) {
 
 void drawSetResolution(int w, int h) {
 	SDL_SetWindowSize(window, w, h);
-	realWinW = w;
-	realWinH = h;
+	windowWidth = w;
+	windowHeight = h;
 
 	int mw, mh;
 	drawGetMonitorResolution(&mw, &mh);

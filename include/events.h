@@ -68,10 +68,6 @@ void addUpdate(int type, void (*callback)(void *arg), void *arg);
  */
 void removeUpdate(int type, void (*callback)(void *arg));
 
-
-void addDrawUpdate(int priority, void (*callback)(void *arg), void *arg);
-void removeDrawUpdate(int priority);
-
 /**
  * Add an input handler
  * @param evMask bitmask of desired events

@@ -34,16 +34,8 @@ struct EvCallback {
 	int typeMask;
 };
 
-struct DrawUpdate {
-	int priority;
-	void (*draw)(void *arg);
-	void *arg;
-};
-
 static struct Vector updateLists[NROF_UPDATES];
 static struct Vector inputHandlers;
-
-static struct Vector drawUpdates;
 
 static bool doSceneSwitch;
 static int sceneSwitchTime;
@@ -80,7 +72,6 @@ void eventInit(void) {
 		vecCreate(&updateLists[i], sizeof(struct EvCallback));
 	}
 	vecCreate(&inputHandlers, sizeof(struct EvCallback));
-	vecCreate(&drawUpdates, sizeof(struct DrawUpdate));
 
 	loadFrames = LOAD_FRAMES;
 	tickInterval = SDL_GetPerformanceFrequency() / 60;
@@ -104,13 +95,7 @@ void eventFini(void) {
 }
 
 static void eventDrawUpdate(void) {
-	for (unsigned int i = 0; i < vecCount(&drawUpdates); i++) {
-		struct DrawUpdate *upd = vecAt(&drawUpdates, i);
-		if (upd->draw) {
-			drawReset();
-			upd->draw(upd->arg);
-		}
-	}
+	drawFullFrame();
 }
 
 static void eventMainUpdate(void) {
@@ -237,30 +222,6 @@ void removeUpdate(int type, void (*callback)(void *arg)) {
 	}
 }
 
-void addDrawUpdate(int priority, void (*callback)(void *arg), void *arg) {
-	unsigned int i;
-	for (i = 0; i < vecCount(&drawUpdates); i++) {
-		struct DrawUpdate *upd = vecAt(&drawUpdates, i);
-		if (upd->priority > priority) {
-			break;
-		}
-	}
-
-	struct DrawUpdate *newUpdate = vecInsert(&drawUpdates, i);
-	newUpdate->priority = priority;
-	newUpdate->draw = callback;
-	newUpdate->arg = arg;
-}
-void removeDrawUpdate(int priority) {
-	for (unsigned int i = 0; i < vecCount(&drawUpdates); i++) {
-		struct DrawUpdate *upd = vecAt(&drawUpdates, i);
-		if (upd->priority == priority) {
-			vecDelete(&drawUpdates, i);
-			break;
-		}
-	}
-}
-
 void addInputHandler(int evMask, void (*callback)(void *arg, struct Event *ev), void *arg) {
 	struct EvCallback *ec = vecInsert(&inputHandlers, -1);
 	ec->input = callback;
@@ -345,10 +306,6 @@ static void doSwitchScene(void) {
 		componentListEndScene();
 	}
 
-	/* Reset camera */
-	camX = camY = 0;
-	cam3DProjPersp(DEG2RAD(60), 0.1f, 200.0f);
-	cam3DLook(0, 0, 0, 0, 0, -1, 0, 1, 0);
 	gameSpeed = 1;
 
 	audioStopMusic();

@@ -1,4 +1,5 @@
 #include <gfx/draw.h>
+#include <gfx/draw3d.h>
 #include <vec.h>
 #include "gfx.h"
 
@@ -51,41 +52,45 @@ struct AABB {
 
 static Frustum curFrustum;
 
-void drawUpdateFrustumPersp(float fov, float fnear, float ffar) {
-	Vec3 position{ cam3DPos.x, cam3DPos.y, cam3DPos.z };
-	Vec3 right{ Vec3{ cam3DMatrix.m[0], cam3DMatrix.m[4], cam3DMatrix.m[8] }.normalized() };
-	Vec3 up{ Vec3{ cam3DMatrix.m[1], cam3DMatrix.m[5], cam3DMatrix.m[9] }.normalized() };
-	Vec3 forward{ Vec3{ -cam3DMatrix.m[2], -cam3DMatrix.m[6], -cam3DMatrix.m[10] }.normalized() };
+void drawUpdateFrustum(struct DrawPass *pass) {
+	if (!(pass->flags & DRAW_PASS_FLAG_FRUSTUM_CULL))
+		return;
 
-	const float zNear = fnear;
-	const float zFar = ffar;
-	const float aspect = (float)rttIntW / rttIntH;
-	const float halfVSide = zFar * tanf(fov * 0.5f);
-	const float halfHSide = halfVSide * aspect;
-	const Vec3 frontMultFar = forward * zFar;
+	Vec3 position = *pass->camPosition;
+	Mat *view = pass->viewMatrix;
+	Vec3 right{ Vec3{ view->m[0], view->m[4], view->m[8] }.normalized() };
+	Vec3 up{ Vec3{ view->m[1], view->m[5], view->m[9] }.normalized() };
+	Vec3 forward{ Vec3{ -view->m[2], -view->m[6], -view->m[10] }.normalized() };
 
-	curFrustum.nearFace = { position + forward * zNear, forward };
-	curFrustum.farFace = { position + frontMultFar, -forward };
-	curFrustum.rightFace = { position, Vec3::cross(frontMultFar - right * halfHSide, up) };
-	curFrustum.leftFace = { position, Vec3::cross(up, frontMultFar + right * halfHSide) };
-	curFrustum.topFace = { position, Vec3::cross(right, frontMultFar - up * halfVSide) };
-	curFrustum.bottomFace = { position, Vec3::cross(frontMultFar + up * halfVSide, right) };
-}
-void drawUpdateFrustumOrtho(float l, float r, float t, float b, float n, float f) {
-	Vec3 position{ cam3DPos.x, cam3DPos.y, cam3DPos.z };
-	Vec3 right{ Vec3{ cam3DMatrix.m[0], cam3DMatrix.m[4], cam3DMatrix.m[8] }.normalized() };
-	Vec3 up{ Vec3{ cam3DMatrix.m[1], cam3DMatrix.m[5], cam3DMatrix.m[9] }.normalized() };
-	Vec3 forward{ Vec3{ -cam3DMatrix.m[2], -cam3DMatrix.m[6], -cam3DMatrix.m[10] }.normalized() };
+	if (pass->projectionMode == PROJECTION_PERSPECTIVE) {
+		const float zNear = pass->proj.perspective.nr;
+		const float zFar = pass->proj.perspective.fr;
+		const float aspect = (float)pass->viewportW / pass->viewportH;
+		const float halfVSide = zFar * tanf(pass->proj.perspective.fovy * 0.5f);
+		const float halfHSide = halfVSide * aspect;
+		const Vec3 frontMultFar = forward * zFar;
 
-	curFrustum.nearFace = { position + forward * n, forward };
-	curFrustum.farFace = { position + forward * f, -forward };
-	curFrustum.rightFace = { position + right * r, -right };
-	curFrustum.leftFace = { position + right * l, right };
-	curFrustum.topFace = { position + up * t, -up };
-	curFrustum.bottomFace = { position + up * b, up };
+		curFrustum.nearFace = { position + forward * zNear, forward };
+		curFrustum.farFace = { position + frontMultFar, -forward };
+		curFrustum.rightFace = { position, Vec3::cross(frontMultFar - right * halfHSide, up) };
+		curFrustum.leftFace = { position, Vec3::cross(up, frontMultFar + right * halfHSide) };
+		curFrustum.topFace = { position, Vec3::cross(right, frontMultFar - up * halfVSide) };
+		curFrustum.bottomFace = { position, Vec3::cross(frontMultFar + up * halfVSide, right) };
+	}
+	else if (pass->projectionMode == PROJECTION_ORTHO) {
+		curFrustum.nearFace = { position + forward * pass->proj.ortho.n, forward };
+		curFrustum.farFace = { position + forward * pass->proj.ortho.f, -forward };
+		curFrustum.rightFace = { position + right * pass->proj.ortho.r, -right };
+		curFrustum.leftFace = { position + right * pass->proj.ortho.l, right };
+		curFrustum.topFace = { position + up * pass->proj.ortho.t, -up };
+		curFrustum.bottomFace = { position + up * pass->proj.ortho.b, up };
+	}
 }
 
 bool drawModelInFrustum(struct Model *m) {
+	if (!(drawState.passes[drawState.currentPass].flags & DRAW_PASS_FLAG_FRUSTUM_CULL))
+		return true;
+
 	const Mat &transform = drawState.matStack[drawState.matStackIdx];
 	Vec3 center = transform * Vec4(m->aabbCenter, 1);
 

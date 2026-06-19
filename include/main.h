@@ -36,15 +36,6 @@ struct EngineSettings {
 	/* Game Info */
 	const char *gameTitle;
 	const char *gameVersion;
-
-	/* Draw priorities */
-	int draw3DStart;
-	int draw3DNoCull;
-	int drawPhysDebug;
-	int draw3DOverlay;
-	int draw2DLowRes;
-	int draw2DHiRes;
-	int drawRttEnd;
 };
 
 extern const struct EngineSettings defaultEngineSettings;

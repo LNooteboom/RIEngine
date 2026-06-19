@@ -33,6 +33,30 @@ enum ColorMode {
 	COLOR_INOUT = COLOR_LR
 };
 
+enum CullMode {
+	CULL_NONE,
+	CULL_BACK,
+	CULL_FRONT
+};
+
+enum DepthStencilMode {
+	DEPTH_STENCIL_DISABLE,
+	DEPTH_STENCIL_DEPTH,
+	DEPTH_STENCIL_DEPTH_NO_WRITE
+};
+
+enum SamplerMode {
+	SAMPLER_LINEAR,
+	SAMPLER_POINT
+};
+
+enum ProjectionMode {
+	PROJECTION_IDENT,
+	PROJECTION_PERSPECTIVE,
+	PROJECTION_ORTHO,
+	PROJECTION_CUSTOM
+};
+
 enum StdShader {
 	SHADER_2D,
 	SHADER_3D,
@@ -42,99 +66,25 @@ enum StdShader {
 	SHADER_STD_N,
 };
 
-enum DrawPhase {
-	DP_3D_BG,
-	DP_3D,
-	DP_3D_NO_CULL,
-	DP_3D_OVERLAY,
-	DP_2D_LOWRES,
-	DP_2D_HIRES,
-	DP_BACKBUFFER
-};
+//#define DRAW_STD_UNIFORM_MODEL		0
+//#define DRAW_STD_UNIFORM_VIEW		1
+//#define DRAW_STD_UNIFORM_PROJ		2
+//#define DRAW_STD_UNIFORM_NORMMAT	3
+//#define DRAW_STD_UNIFORM_COLBLEND	4
+//#define DRAW_STD_UNIFORM_NTEX		5
+//#define DRAW_STD_UNIFORM_TEX0		6
+//#define DRAW_STD_UNIFORM_TEXOFF0	(DRAW_STD_UNIFORM_TEX0 + DRAW_MAX_TEX)
+//#define DRAW_STD_UNIFORM_TEXSCALE0	(DRAW_STD_UNIFORM_TEXOFF0 + DRAW_MAX_TEX)
+//#define DRAW_STD_UNIFORM_TEXBLEND0	(DRAW_STD_UNIFORM_TEXSCALE0 + DRAW_MAX_TEX)
 
-enum LightStrength {
-	LIGHT_MINI,
-	LIGHT_TINY,
-	LIGHT_SMALL,
-	LIGHT_MEDIUM,
-	LIGHT_LARGE,
-	LIGHT_HUGE,
-
-	LIGHT_N
-};
-
-#define DRAW_STD_UNIFORM_MODEL		0
-#define DRAW_STD_UNIFORM_VIEW		1
-#define DRAW_STD_UNIFORM_PROJ		2
-#define DRAW_STD_UNIFORM_NORMMAT	3
-#define DRAW_STD_UNIFORM_COLBLEND	4
-#define DRAW_STD_UNIFORM_NTEX		5
-#define DRAW_STD_UNIFORM_TEX0		6
-#define DRAW_STD_UNIFORM_TEXOFF0	(DRAW_STD_UNIFORM_TEX0 + DRAW_MAX_TEX)
-#define DRAW_STD_UNIFORM_TEXSCALE0	(DRAW_STD_UNIFORM_TEXOFF0 + DRAW_MAX_TEX)
-#define DRAW_STD_UNIFORM_TEXBLEND0	(DRAW_STD_UNIFORM_TEXSCALE0 + DRAW_MAX_TEX)
-
-
-#define MODEL_FILE_VCOL		1
-#define MODEL_FILE_ANIM		2
-#define MODEL_FILE_SIG		"MES0"
-#define MODEL_NAME_LEN		64
-
-struct ModelFileHeader {
-	char sig[4];
-	uint32_t nEntries;
-};
-
-struct ModelFileEntry {
-	char name[MODEL_NAME_LEN];
-	uint32_t flags;
-	uint32_t nVertices;
-	uint32_t nTriangles;
-};
-
-struct Model {
-	struct HTEntry en;
-	char name[MODEL_NAME_LEN];
-	int flags;
-	uint32_t nTriangles;
-	uint32_t nVertices;
-	uint32_t pitch;
-
-	float *verts;
-	uint32_t *indices;
-
-	Vec3 aabbCenter;
-	Vec3 aabbHalfExtent;
-
-	void *d3dVerts;
-	void *d3dIndices;
-
-	unsigned int glVao;
-	unsigned int glVbo;
-	unsigned int glEbo;
-};
-
-struct Light {
-	float x, y, z;
-	float ambientR, ambientG, ambientB;
-	float diffuseR, diffuseG, diffuseB;
-	float specularR, specularG, specularB;
-
-	/* For point lights only */
-	float constant;
-	float linear;
-	float quadratic;
-};
-
-extern struct Light dirLight;
-extern struct Light pointLights[DRAW_MAX_POINTLIGHTS];
-extern uint32_t fogColor;
-extern float fogMin, fogMax;
 
 struct DwTexture {
 	struct Texture *tex;
 	float x, y, xs, ys;
 };
+
+struct DrawPass;
+
 struct DwState {
 	Mat matStack[16];
 	int matStackIdx;
@@ -159,37 +109,75 @@ struct DwState {
 
 	float srcX, srcY, srcW, srcH;
 
-	enum DrawPhase drawPhase;
 	bool hasBuffer;
+
+	int currentPass;
+	int nPasses;
+	struct DrawPass *passes;
+
+	int totalFlushes;
 };
 
 extern struct DwState drawState;
+extern unsigned int windowWidth;
+extern unsigned int windowHeight;
+
+#define DRAW_PASS_FLAG_Z_BUFFER 1
+#define DRAW_PASS_FLAG_FRUSTUM_CULL 2
+#define DRAW_PASS_FLAG_NORMAL_MATRIX 4
+#define DRAW_PASS_FLAG_SCENE_CONSTANTS 8
+#define DRAW_PASS_FLAG_3D_ROTATION 16
+#define DRAW_PASS_FLAG_GAMMA 32
+
+#define DRAW_PASS_FLAG_3D (DRAW_PASS_FLAG_Z_BUFFER | DRAW_PASS_FLAG_FRUSTUM_CULL | DRAW_PASS_FLAG_NORMAL_MATRIX | DRAW_PASS_FLAG_SCENE_CONSTANTS | DRAW_PASS_FLAG_3D_ROTATION | DRAW_PASS_FLAG_GAMMA)
+
+struct Light;
+
+struct DrawProjPerspective {
+	float fovy;
+	float nr;
+	float fr;
+};
+struct DrawProjOrtho {
+	float l, r, t, b, n, f;
+};
+
+struct DrawPass {
+	bool active;
+	Mat *viewMatrix;
+	Vec3 *camPosition;
+	uint32_t flags;
+	enum StdShader stdShader;
+
+	enum CullMode cullMode;
+	enum DepthStencilMode depthStencilMode;
+	enum SamplerMode samplerMode;
+	enum ProjectionMode projectionMode;
+
+	union {
+		struct DrawProjPerspective perspective;
+		struct DrawProjOrtho ortho;
+		Mat *custom;
+	} proj;
+
+	int target; /* -1: backbuffer, >=0: RTT */
+	int viewportX, viewportY;
+	int viewportW, viewportH;
+
+	struct Light *dirLight;
+	struct Light *pointLights;
+
+	uint32_t fogColor;
+	float fogMin, fogMax;
+
+	void (*draw)(struct DrawPass *pass);
+	void *user;
+};
+
 
 struct Shader;
 
-extern float camX;
-extern float camY;
-extern Mat cam3DMatrix;
-extern Vec3 cam3DPos;
-extern Mat cam3DProjMatrix;
 
-extern uint32_t clearColor;
-extern unsigned int winW;
-extern unsigned int winH;
-extern unsigned int realWinW;
-extern unsigned int realWinH;
-
-extern int rttX, rttY;
-extern unsigned int rttW, rttH;
-extern unsigned int rttIntW, rttIntH;
-
-extern int drawFlushes;
-
-int loadModelFile(const char *name);
-void clearModels(void);
-struct Model *getModel(const char *name);
-
-void drawSetSkybox(const char *texture);
 
 /* Shader stuff */
 struct Shader *drawShaderNew(const char *vert, const char *frag);
@@ -269,10 +257,7 @@ static inline void drawVertex(float x, float y, float z, float u, float v, float
 
 void drawIndices(int verts, int n, const unsigned int *lst);
 
-void drawModel3D(struct Model *m);
-
-bool drawModelInFrustum(struct Model *m);
-
+void drawClear(uint32_t color);
 
 /*
  * Shapes
@@ -283,25 +268,14 @@ void drawEllipse(int nPoints, float w, float h);
 void drawArc(int nPoints, float rStart, float r, float w1, float w2);
 void drawSkybox(void);
 
-/*
- * Lights
- */
-void clearLights(void);
-void setLight(struct Light *l, float x, float y, float z, uint32_t color, float ambient, float diffuse, float specular, enum LightStrength strength);
 
-
-/*
- * Camera
-*/
-
-void cam3DLook(float x, float y, float z, float dx, float dy, float dz, float upx, float upy, float upz);
-void cam3DRotate(float x, float y, float z, float rx, float ry, float rz);
-void cam3DProjPersp(float fov, float nr, float fr);
-void cam3DProjOrtho(float l, float r, float t, float b, float n, float f);
-void camReset(void);
-
+/* Global control */
 void drawGetMonitorResolution(int *w, int *h);
 void drawSetResolution(int w, int h);
+void drawSetPipeline(int nPasses, struct DrawPass *passes);
+void drawFullFrame(void);
+void drawSetPass2D(struct DrawPass *pass);
+void drawSetPass3D(struct DrawPass *pass);
 
 #ifdef __cplusplus
 } // extern "C"

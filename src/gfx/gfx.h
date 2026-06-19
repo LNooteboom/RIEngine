@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 struct Model;
+struct Mat;
 
 // Defined in driver
 void uploadModel(struct Model *m, void *verts, void *indices);
@@ -24,8 +25,12 @@ void anim3DFini(void);
 
 void drawSetAnimUbo(void *data, size_t dataSize);
 
-void drawUpdateFrustumPersp(float fov, float fnear, float ffar);
-void drawUpdateFrustumOrtho(float l, float r, float t, float b, float n, float f);
+void drawUpdateFrustum(struct DrawPass *pass);
+
+void drawSetTarget(void);
+void drawEnd(void);
+
+void drawGetProjection(struct Mat *m);
 
 #ifdef __cplusplus
 }

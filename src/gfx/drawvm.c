@@ -1,4 +1,5 @@
 #include <gfx/drawvm.h>
+#include <gfx/draw3d.h>
 #include <gfx/ttf.h>
 #include <events.h>
 #include <mem.h>
@@ -297,11 +298,12 @@ static void drawVmDraw(struct DrawVm *d, struct DrawVm *par) {
 	}
 }
 
-static void drawVmDrawLayer(void *arg) {
-	int layer = (uintptr_t)arg;
-	for (struct DrawVm *d = layers[layer].first; d; d = d->layerNext) {
-		if (!(d->flags & DVM_FLAG_INVISIBLE)) {
-			drawVmDraw(d, NULL);
+void drawVmDrawLayers(int first, int last) {
+	for (int layer = first; layer <= last; layer++) {
+		for (struct DrawVm *d = layers[layer].first; d; d = d->layerNext) {
+			if (!(d->flags & DVM_FLAG_INVISIBLE)) {
+				drawVmDraw(d, NULL);
+			}
 		}
 	}
 }
@@ -731,10 +733,10 @@ DVM_GLBL_GETSET(float, GF6, drawVmGlobalsF[6])
 DVM_GLBL_GETSET(float, GF7, drawVmGlobalsF[7])
 
 static int i_getVarWIN_W(struct IchigoVm *vm) {
-	return winW;
+	return windowWidth;
 }
 static int i_getVarWIN_H(struct IchigoVm *vm) {
-	return winH;
+	return windowHeight;
 }
 
 static void i_setDelete(struct IchigoVm *vm) {
@@ -1160,10 +1162,6 @@ void drawVmInit(void) {
 	componentListInit(DRAW_VM_LOCALS, struct IchigoLocals);
 
 	addUpdate(UPDATE_UI, drawVmUpdateAll, NULL);
-	for (int i = 0; i < DVM_N_LAYERS; i++) {
-		/* Priority = layer * 100 except for layer 0 which has priority 1 */
-		addDrawUpdate(i? i * 100 : 1, drawVmDrawLayer, (void *)(uintptr_t)i);
-	}
 
 	setVar(23, REG_INT, i_getVarFLAGS, i_setVarFLAGS);
 	setVar(24, REG_INT, i_getVarLANG, NULL);
@@ -1195,8 +1193,5 @@ void drawVmFini(void) {
 	vecDestroy(&poseList);
 	vecDestroy(&texList);
 	removeUpdate(UPDATE_UI, drawVmUpdateAll);
-	for (int i = 0; i < DVM_N_LAYERS; i++) {
-		removeDrawUpdate(i? i * 100 : 1);
-	}
 	componentListFini(DRAW_VM);
 }

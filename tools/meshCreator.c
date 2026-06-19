@@ -5,7 +5,7 @@
 #define CGLTF_IMPLEMENTATION
 #include "cgltf.h"
 
-#include "../include/gfx/draw.h"
+#include "../include/gfx/draw3d.h"
 
 #define logNorm printf
 /*****************************************

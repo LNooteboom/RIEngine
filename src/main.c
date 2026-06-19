@@ -14,8 +14,7 @@ const struct EngineSettings defaultEngineSettings = {
 	854, 480,
 	64, 64,
 	"Undefined Game",
-	"0.01a",
-	399, 498, 499, 1199, 1599, 3199, 3999
+	"0.01a"
 };
 struct EngineSettings *engineSettings;
 
