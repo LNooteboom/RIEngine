@@ -522,14 +522,14 @@ static inline Mat *matPerspective(Mat *out, float fovy, float aspect, float fnea
 	return out;
 }
 
-static inline Mat *matOrtho(Mat *out, float l, float r, float t, float b, float n, float f) {
+static inline Mat *matOrtho(Mat *out, float l, float r, float b, float t, float n, float f) {
 	matIdent(out, 0.0f);
 	out->m[0] = 2 / (r - l);
 	out->m[5] = 2 / (t - b);
-	out->m[10] = 2 / (f - n);
+	out->m[10] = -1 / (f - n);
 	out->m[12] = -((r + l) / (r - l));
 	out->m[13] = -((t + b) / (t - b));
-	out->m[14] = ((f + n) / (f - n));
+	out->m[14] = -n / (f - n);
 	out->m[15] = 1;
 	return out;
 }
