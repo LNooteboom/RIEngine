@@ -1,4 +1,5 @@
 #include <gfx/draw.h>
+#include <gfx/draw3d.h>
 #include <events.h>
 #include <assets.h>
 #include <string.h>
@@ -129,7 +130,7 @@ static void animUpdateState(struct Anim3DState *s, struct PoseFileAnim *a) {
 		ch = ((struct PoseFileAnimChannel *)((char *)ch + ch->size));
 	}
 
-	for (unsigned int i = 0; i < s->nBones; i++) {
+	for (int i = 0; i < s->nBones; i++) {
 		/* convert bonestate to mat */
 		Mat mat;
 		matFromTranslation(&mat, &states[i].pos);
@@ -180,10 +181,9 @@ void drawAnim(struct Model *m, struct Anim3DState *s) {
 
 	struct AnimUbo ubo;
 	memset(&ubo, 0, sizeof(ubo));
-	Mat mats[DRAW_MAX_BONE];
 	struct PoseFileHeader *h = &s->poseFile->hdr;
 	struct PoseFileBone *b = (struct PoseFileBone *)(h + 1);
-	for (unsigned int i = 0; i < s->nBones; i++) {
+	for (int i = 0; i < s->nBones; i++) {
 		Mat invBind;
 		matLoad(&invBind, b[i].inverseBindMat);
 		matMul(&ubo.finalMats[i], &s->mats[i], &invBind);

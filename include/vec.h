@@ -348,6 +348,7 @@ static inline Mat *matLoad(Mat *out, float *data) {
 	for (int i = 0; i < 16; i++) {
 		out->m[i] = data[i];
 	}
+	return out;
 }
 
 static inline Mat *matIdent(Mat *out, float ident) {

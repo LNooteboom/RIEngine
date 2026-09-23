@@ -193,7 +193,7 @@ static void drawVmDraw(struct DrawVm *d, struct DrawVm *par) {
 		if (parent && (parent->flags & (DVM_FLAG_COLOR_CHILDREN | DVM_FLAG_ALPHA_CHILDREN))) {
 			float col1[4] = { d->col1[0], d->col1[1], d->col1[2], d->col1[3] };
 			float col2[4] = { d->col2[0], d->col2[1], d->col2[2], d->col2[3] };
-			float *parentCol = parent->colMode == COLOR2 ? &parent->col2 : &parent->col1;
+			float *parentCol = parent->colMode == COLOR2 ? parent->col2 : parent->col1;
 			if (parent->flags & DVM_FLAG_ALPHA_CHILDREN) {
 				col1[3] *= parentCol[3];
 				col2[3] *= parentCol[3];

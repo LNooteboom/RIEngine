@@ -26,6 +26,7 @@ if (WINDOWS)
 	
 	SET(OPTIONS WIN32)
 	set(CMAKE_C_FLAGS "/W3 /wd4244 /wd4200 /wd4201 /wd4152 /Fp:fast")
+	set(CMAKE_CXX_FLAGS "/W3 /wd4244 /wd4200 /wd4201 /wd4152 /wd26495 /Fp:fast")
 	
 	set(RENDER_OPENGL OFF)
 	set(RENDER_DX11 ON)

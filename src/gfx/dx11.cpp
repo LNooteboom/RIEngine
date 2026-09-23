@@ -643,12 +643,12 @@ void drawSetVsync(int mode) {
 void uploadModel(Model *m, void *verts, void *indices) {
 	D3D11_BUFFER_DESC bufferDesc = { 0 };
 	size_t sz = m->flags & MODEL_FILE_ANIM ? sizeof(struct StdVboAnim) : sizeof(struct StdVboColor);
-	bufferDesc.ByteWidth = sz * m->nVertices;
+	bufferDesc.ByteWidth = (UINT)sz * m->nVertices;
 	bufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
 	bufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	D3D11_SUBRESOURCE_DATA subResourceData;
 	subResourceData.pSysMem = verts;
-	subResourceData.SysMemPitch = sz;
+	subResourceData.SysMemPitch = (UINT)sz;
 	subResourceData.SysMemSlicePitch = 0;
 	ID3D11Buffer *buffer;
 	device->CreateBuffer(&bufferDesc, &subResourceData, &buffer);
@@ -716,7 +716,7 @@ void drawSetTarget(void) {
 	}
 	
 
-	D3D11_VIEWPORT viewport = { pass->viewportX, pass->viewportY, pass->viewportW, pass->viewportH, 0, 1 };
+	D3D11_VIEWPORT viewport = { (float)pass->viewportX, (float)pass->viewportY, (float)pass->viewportW, (float)pass->viewportH, 0, 1 };
 	deviceContext->RSSetViewports(1, &viewport);
 	
 	switch (pass->cullMode) {

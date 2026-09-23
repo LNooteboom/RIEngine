@@ -184,7 +184,7 @@ void componentListOrderedClean(int id) {
 	int start = (cl->count / DENSE_PAGE_SIZE);
 	if (cl->count % DENSE_PAGE_SIZE)
 		start++;
-	for (int i = start; i < cl->nDensePages; i++) {
+	for (unsigned int i = start; i < cl->nDensePages; i++) {
 		if (cl->dense[i]) {
 			globalDealloc(cl->dense[i]);
 			cl->dense[i] = NULL;
