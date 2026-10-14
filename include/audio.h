@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <ecs.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,6 +34,8 @@ void audioPauseMusic(bool paused);
 
 /**
  * Play a sound effect
+ * 0 <= volume <= 255
+ * -127 <= panning <= 127
  */
 void audioPlaySFX(int channel, int volume, int panning);
 

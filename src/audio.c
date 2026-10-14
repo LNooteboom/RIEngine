@@ -3,64 +3,138 @@
 #include <stdio.h>
 #include <events.h>
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_mixer.h>
+#include <vec.h>
 
-#define FREQUENCY 22050
+#define FREQUENCY 44100
+#define MAX_SFX_SOURCES 64
+
+#define m128 __m128
+#define m128i __m128i
+
+struct AudioChannel {
+	bool play;
+	uint32_t sample, length;
+	float left, right;
+
+	SDL_AudioSpec spec;
+	uint8_t *data; /* The audio samples */
+};
 
 static int sfxVol;
 static int musVol;
 
-struct Asset *sfxAssets[N_AUDIO_CHANNELS];
-Mix_Chunk *sfxChunks[N_AUDIO_CHANNELS];
+static struct AudioChannel *sfxChannels[N_AUDIO_CHANNELS];
 
 static struct Asset* musicAsset;
-static Mix_Music* music;
+struct AudioChannel *musicChannel;
+
+static SDL_AudioSpec audioSpec;
+static float *audioAccum;
+static uint32_t audioAccumSamples;
+
+static uint32_t addChannelSamplesS16(struct AudioChannel *chan, float masterVolume) {
+	/* Evil floating point hacking here, beware of dragons */
+	int16_t *src = (int16_t *)chan->data + chan->sample;
+	uint32_t srcLen = chan->length - chan->sample;
+	uint32_t s = 0;
+
+	float vLeft = masterVolume * chan->left;
+	float vRight = masterVolume * chan->right;
+	m128 volume = _mm_set_ps(vLeft, vRight, vLeft, vRight);
+
+	m128i makeUnsigned = _mm_set1_epi16(0x8000);
+	m128i magic = _mm_set1_epi16(0x4380); /* Exponent part of float */
+	m128 magic2 = _mm_set1_ps(257);
+
+	for (int i = 0; i < audioAccumSamples / 8 && i < srcLen / 8; i++) {
+		m128i sdat = _mm_loadu_si128((m128i *)src[s]);
+
+		sdat = _mm_xor_si128(sdat, makeUnsigned); /* Wrap to unsigned short */
+		m128i lo = _mm_unpacklo_epi16(sdat, magic); /* unpack and turn it into float */
+		m128i hi = _mm_unpackhi_epi16(sdat, magic);
+		m128 lof = _mm_sub_ps(_mm_castsi128_ps(lo), magic2); /* subtract bias value */
+		m128 hif = _mm_sub_ps(_mm_castsi128_ps(lo), magic2);
+
+		/* Multiply the volume */
+		lof = _mm_mul_ps(lof, volume);
+		hif = _mm_mul_ps(hif, volume);
+
+		/* Add to accumulator */
+		_mm_store_ps(audioAccum + s    , _mm_add_ps(_mm_load_ps(audioAccum + s    ), lof));
+		_mm_store_ps(audioAccum + s + 4, _mm_add_ps(_mm_load_ps(audioAccum + s + 4), hif));
+
+		s += 8;
+	}
+
+	while (s < audioAccumSamples && s < srcLen) {
+		audioAccum[s] += src[s] / (float)0x8000 * vLeft;
+		s++;
+		audioAccum[s] += src[s] / (float)0x8000 * vRight;
+		s++;
+	}
+	
+	return s;
+}
+
+static void audioCallback(void *userData, Uint8 *finalStream, int streamLength) {
+	memset(audioAccum, 0, audioSpec.samples * 8);
+	float sfxV = sfxVol / 255.0f;
+
+	for (int curChannel = 0; curChannel < N_AUDIO_CHANNELS; curChannel++) {
+		struct AudioChannel *chan = &sfxChannels[curChannel];
+		if (!chan->play)
+			continue;
+
+		uint32_t s = 0;
+		if (chan->spec.format == AUDIO_S16SYS) {
+			s = addChannelSamplesS16(chan, sfxV);
+		} else {
+			assert(false);
+		}
+
+		chan->sample += s;
+		if (chan->sample >= chan->length)
+			chan->play = false;
+	}
+	
+	m128 vMin = _mm_set1_ps(-1);
+	m128 vMax = _mm_set1_ps(1);
+	if (audioSpec.format == AUDIO_F32) {
+		for (int i = 0; i < streamLength / sizeof(float); i += 4) {
+			m128 v = _mm_load_ps(audioAccum + i);
+			v = _mm_max_ps(v, vMin);
+			v = _mm_min_ps(v, vMax);
+			_mm_store_ps(((float *)finalStream) + i, v);
+		}
+	} else if (audioSpec.format == AUDIO_S16SYS) {
+		/* convert to shorts */
+		for (int i = 0; i < streamLength / sizeof(float); i += 8) {
+			m128 lo = _mm_load_ps(audioAccum + i);
+			m128 hi = _mm_load_ps(audioAccum + i + 4);
+			m128i v = _mm_packs_epi32(_mm_cvtps_epi32(lo), _mm_cvtps_epi32(hi));
+			_mm_store_si128((m128i *)(((float *)finalStream) + i), v);
+		}
+	}
+}
 
 
 /* Music */
 
 void audioStartMusic(const char *name) {
-	if (musicAsset) {
-		audioStopMusic();
-	}
-
-	musicAsset = assetOpen(name);
-	if (!musicAsset) {
-		logNorm("Cannot find music %s\n", name);
-		return;
-	}
-	music = Mix_LoadMUS_RW(musicAsset->rwOps, 0);
-	if (!music) {
-		logNorm("Failed to load music %s: %s\n", name, Mix_GetError());
-		return;
-	}
-
-	Mix_PlayMusic(music, -1);
-
+	
 	loadUpdatePoll();
 }
 
 void audioStopMusic(void) {
-	Mix_HaltMusic();
-	if (music) {
-		Mix_FreeMusic(music);
-		music = NULL;
-		assetClose(musicAsset);
-		musicAsset = NULL;
-	}
+	
 }
 
 void audioPauseMusic(bool paused) {
-	if (paused) {
-		Mix_PauseMusic();
-	} else {
-		Mix_ResumeMusic();
-	}
+	
 }
 
 void audioSetMusicVolume(int volume) {
 	musVol = volume;
-	Mix_VolumeMusic(volume);
 }
 
 int audioGetMusicVolume(void) {
@@ -72,7 +146,6 @@ int audioGetMusicVolume(void) {
 
 void audioSetSFXVolume(int volume) {
 	sfxVol = volume;
-	Mix_Volume(-1, volume);
 }
 
 int audioGetSFXVolume(void) {
@@ -80,52 +153,47 @@ int audioGetSFXVolume(void) {
 }
 
 void audioPlaySFX(int channel, int volume, int panning) {
-	if (sfxChunks[channel]) {
-		int v = volume / 2 * sfxVol / 128;
-		Mix_Volume(channel, v);
-		if (panning < 0) {
-			Mix_SetPanning(channel, 254, 254 + panning);
-		} else {
-			Mix_SetPanning(channel, 254 - panning, 254);
-		}
-		Mix_PlayChannel(channel, sfxChunks[channel], 0);
+	struct AudioChannel *chan = &sfxChannels[channel];
+	if (!chan->data)
+		return;
+
+	chan->left = chan->right = volume / 255.0f;
+	if (panning < 0) {
+		chan->right *= 1.0f - (panning / -127.0f);
+	} else if (panning > 0) {
+		chan->left *= 1.0f - (panning / 127.0f);
 	}
+	chan->sample = 0;
+	chan->play = true;
 }
 
 void audioStopSFX(int channel) {
-	Mix_FadeOutChannel(channel, 100);
 }
 
 void audioLoadSFX(int channel, const char *name) {
 	struct Asset *a = assetOpen(name);
 	if (!a) {
-		logNorm("Could not find SFX: %s\n", name);
+		logError("Could not find SFX: %s\n", name);
 		return;
 	}
-	Mix_Chunk *ch = Mix_LoadWAV_RW(a->rwOps, 0);
-	if (!ch) {
-		logNorm("Could not load WAV %s: %s\n", name, Mix_GetError());
-		assetClose(a);
-		return;
+
+	struct AudioChannel *chan = &sfxChannels[channel];
+	Uint8 *data;
+	Uint32 len;
+	if (SDL_LoadWAV_RW(a->rwOps, 0, &chan->spec, &chan->data, &chan->length) == NULL) {
+		logError("Failed to load SFX: %s, %s\n", name, SDL_GetError());
+		chan->data = NULL;
 	}
-	Mix_VolumeChunk(ch, 64);
-	sfxAssets[channel] = a;
-	sfxChunks[channel] = ch;
+
+	assetClose(a);
 
 	loadUpdatePoll();
 }
 
 void audioUnloadSFX(int channel) {
-	Mix_HaltChannel(channel);
-	if (sfxChunks[channel]) {
-		Mix_FreeChunk(sfxChunks[channel]);
-		sfxChunks[channel] = NULL;
-	}
-	struct Asset *a = sfxAssets[channel];
-	if (a) {
-		assetClose(a);
-		sfxAssets[channel] = NULL;
-	}
+	struct AudioChannel *chan = &sfxChannels[channel];
+	SDL_FreeWAV(chan->data);
+	chan->data = NULL;
 }
 void audioUnloadAllSFX(void) {
 	for (int i = 0; i < N_AUDIO_CHANNELS; i++) {
@@ -136,26 +204,22 @@ void audioUnloadAllSFX(void) {
 /* Init and Fini */
 
 void audioInit(void) {
-	Mix_Init(MIX_INIT_OGG);
-
-	int bufSize = 512;
-	int error = Mix_OpenAudioDevice(FREQUENCY, AUDIO_S16SYS, 2, bufSize, NULL, 0);
-	if (error == -1) {
-		logNorm("Failed to open audio: %s\n", Mix_GetError());
-		return;
-	}
-
 	sfxVol = engineSettings->sfxVol;
 	musVol = engineSettings->bgmVol;
 
-	int gotFreq, gotChannels;
-	Uint16 gotFmt;
-	Mix_QuerySpec(&gotFreq, &gotFmt, &gotChannels);
+	SDL_AudioSpec desired = { 0 };
+	desired.freq = FREQUENCY;
+	desired.samples = 512;
+	desired.channels = 2;
+	desired.format = AUDIO_F32;
+	desired.callback = audioCallback;
+	if (SDL_OpenAudioDevice(NULL, 0, &desired, &audioSpec, SDL_AUDIO_ALLOW_FORMAT_CHANGE) < 0) {
+		fail("Failed to open audio device: %s\n", SDL_GetError());
+	}
 
-	Mix_AllocateChannels(N_AUDIO_CHANNELS);
+	audioAccumSamples = audioSpec.samples * 2; /* stereo */
+	audioAccum = globalAlloc(audioAccumSamples * sizeof(float));
 }
 
 void audioFini(void) {
-	Mix_CloseAudio();
-	Mix_Quit();
 }
