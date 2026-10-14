@@ -296,26 +296,40 @@ static void copyLight(struct DrawPass *pass, StdConstantPSLight *dest, Light *l,
 	dest->linear = l->linear;
 	dest->quadratic = l->quadratic;
 }
-static void setScenePSConstants() {
+
+static void noLight(StdConstantPSLight *dest) {
+	memset(dest, 0, sizeof(*dest));
+}
+
+void drawSetSceneConstrants(void) {
 	struct DrawPass *pass = &drawState.passes[drawState.currentPass];
 	D3D11_MAPPED_SUBRESOURCE mappedBuffer;
 	deviceContext->Map(stdConstantPSSceneBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedBuffer);
 	StdConstantPSScene *scene = static_cast<StdConstantPSScene *>(mappedBuffer.pData);
-	copyLight(pass, &scene->dirLight, pass->dirLight, false);
+	if (pass->dirLight) {
+		copyLight(pass, &scene->dirLight, pass->dirLight, false);
+	} else {
+		noLight(&scene->dirLight);
+	}
+
 	for (int i = 0; i < DRAW_MAX_POINTLIGHTS; i++) {
-		copyLight(pass, &scene->pointLights[i], &pass->pointLights[i], true);
+		if (pass->pointLights) {
+			copyLight(pass, &scene->pointLights[i], &pass->pointLights[i], true);
+		} else {
+			noLight(&scene->pointLights[i]);
+		}
 	}
 	float fog[3] = {
-		((fogColor >> 16) & 0xFF) / 255.0f,
-		((fogColor >> 8) & 0xFF) / 255.0f,
-		((fogColor) & 0xFF) / 255.0f
+		((pass->fogColor >> 16) & 0xFF) / 255.0f,
+		((pass->fogColor >> 8) & 0xFF) / 255.0f,
+		((pass->fogColor) & 0xFF) / 255.0f
 	};
 	doGamma(&fog[0], &fog[1], &fog[2]);
 	scene->fogColor[0] = fog[0];
 	scene->fogColor[1] = fog[1];
 	scene->fogColor[2] = fog[2];
-	scene->fogMin = fogMin;
-	scene->fogMax = fogMax;
+	scene->fogMin = pass->fogMin;
+	scene->fogMax = pass->fogMax;
 	deviceContext->Unmap(stdConstantPSSceneBuffer, 0);
 }
 

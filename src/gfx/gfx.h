@@ -29,6 +29,7 @@ void drawUpdateFrustum(struct DrawPass *pass);
 
 void drawSetTarget(void);
 void drawEnd(void);
+void drawSetSceneConstrants(void);
 
 void drawGetProjection(struct Mat *m);
 

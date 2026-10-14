@@ -69,11 +69,6 @@ struct Light {
 	float quadratic;
 };
 
-extern struct Light dirLight;
-extern struct Light pointLights[DRAW_MAX_POINTLIGHTS];
-extern uint32_t fogColor;
-extern float fogMin, fogMax;
-
 int loadModelFile(const char *name);
 void clearModels(void);
 struct Model *getModel(const char *name);
@@ -83,7 +78,7 @@ void drawSetSkybox(const char *texture);
 /*
  * Lights
  */
-void clearLights(void);
+void clearLight(struct Light *l);
 void setLight(struct Light *l, float x, float y, float z, uint32_t color, float ambient, float diffuse, float specular, enum LightStrength strength);
 
 /* Draw a Model */

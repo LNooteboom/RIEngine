@@ -514,9 +514,8 @@ struct Model *getModel(const char *name) {
 	return ret;
 }
 
-void clearLights(void) {
-	//memset(&dirLight, 0, sizeof(dirLight));
-	//memset(&pointLights[0], 0, sizeof(struct Light) * DRAW_MAX_POINTLIGHTS);
+void clearLight(struct Light *l) {
+	memset(l, 0, sizeof(*l));
 }
 
 static const float lightLinear[LIGHT_N] = { 0.22f, 0.14f, 0.09f, 0.07f, 0.045f, 0.027f };
@@ -576,6 +575,7 @@ void drawFullFrame(void) {
 			drawState.zWrite = pass->depthStencilMode == DEPTH_STENCIL_DEPTH;
 			drawSetTarget();
 			drawUpdateFrustum(pass);
+			drawSetSceneConstrants();
 			pass->draw(pass);
 			drawFlush();
 		}
