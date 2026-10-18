@@ -47,25 +47,25 @@ static uint32_t addChannelSamplesS16(struct AudioChannel *chan, float masterVolu
 	m128i magic = _mm_set1_epi16(0x4380); /* Exponent part of float */
 	m128 magic2 = _mm_set1_ps(257);
 
-	//for (int i = 0; i < audioAccumSamples / 8 && i < srcLen / 8; i++) {
-	//	m128i sdat = _mm_loadu_si128((m128i *)(src + s));
+	for (int i = 0; i < audioAccumSamples / 8 && i < srcLen / 8; i++) {
+		m128i sdat = _mm_loadu_si128((m128i *)(src + s));
 
-	//	sdat = _mm_xor_si128(sdat, makeUnsigned); /* Wrap to unsigned short */
-	//	m128i lo = _mm_unpacklo_epi16(sdat, magic); /* unpack and turn it into float */
-	//	m128i hi = _mm_unpackhi_epi16(sdat, magic);
-	//	m128 lof = _mm_sub_ps(_mm_castsi128_ps(lo), magic2); /* subtract bias value */
-	//	m128 hif = _mm_sub_ps(_mm_castsi128_ps(hi), magic2);
+		sdat = _mm_xor_si128(sdat, makeUnsigned); /* Wrap to unsigned short */
+		m128i lo = _mm_unpacklo_epi16(sdat, magic); /* unpack and turn it into float */
+		m128i hi = _mm_unpackhi_epi16(sdat, magic);
+		m128 lof = _mm_sub_ps(_mm_castsi128_ps(lo), magic2); /* subtract bias value */
+		m128 hif = _mm_sub_ps(_mm_castsi128_ps(hi), magic2);
 
-	//	/* Multiply the volume */
-	//	lof = _mm_mul_ps(lof, volume);
-	//	hif = _mm_mul_ps(hif, volume);
+		/* Multiply the volume */
+		lof = _mm_mul_ps(lof, volume);
+		hif = _mm_mul_ps(hif, volume);
 
-	//	/* Add to accumulator */
-	//	_mm_store_ps(audioAccum + s    , _mm_add_ps(_mm_load_ps(audioAccum + s    ), lof));
-	//	_mm_store_ps(audioAccum + s + 4, _mm_add_ps(_mm_load_ps(audioAccum + s + 4), hif));
+		/* Add to accumulator */
+		_mm_store_ps(audioAccum + s    , _mm_add_ps(_mm_load_ps(audioAccum + s    ), lof));
+		_mm_store_ps(audioAccum + s + 4, _mm_add_ps(_mm_load_ps(audioAccum + s + 4), hif));
 
-	//	s += 8;
-	//}
+		s += 8;
+	}
 
 	while (s < audioAccumSamples && s < srcLen) {
 		audioAccum[s] += src[s] / (float)0x8000 * vLeft;
@@ -117,6 +117,8 @@ static void audioCallback(void *userData, Uint8 *finalStream, int streamLength) 
 		uint32_t s = 0;
 		if (chan->fmt == AUDIO_S16SYS) {
 			s = addChannelSamplesS16(chan, sfxV);
+		} else if (chan->fmt == AUDIO_F32) {
+			s = addChannelSamplesF32(chan, sfxV);
 		} else {
 			assert(false);
 		}
@@ -145,6 +147,81 @@ static void audioCallback(void *userData, Uint8 *finalStream, int streamLength) 
 			_mm_store_si128((m128i *)(((float *)finalStream) + i), v);
 		}
 	}
+}
+
+static void loadChannelS16(struct AudioChannel *chan, struct SDL_AudioSpec *spec, int16_t *data, uint32_t len) {
+	uint32_t frames = len / sizeof(int16_t) / spec->channels;
+	chan->length = frames * 2;
+	if (spec->freq == FREQUENCY / 2)
+		chan->length *= 2;
+
+	chan->data = globalAlloc(chan->length * sizeof(int16_t));
+	int16_t *dst = (int16_t *)chan->data;
+
+	for (uint32_t i = 0; i < frames; i++) {
+		int32_t l, r;
+		if (spec->channels == 2) {
+			l = data[i * 2];
+			r = data[i * 2 + 1];
+		} else {
+			l = r = data[i];
+		}
+		*(dst++) = l;
+		*(dst++) = r;
+
+		if (spec->freq == FREQUENCY / 2) {
+			if (i != frames - 1) {
+				if (spec->channels == 2) {
+					l = (l + data[i * 2 + 2]) / 2;
+					r = (r + data[i * 2 + 3]) / 2;
+				} else {
+					l = r = (l + data[i + 1]) / 2;
+				}
+			}
+			*(dst++) = l;
+			*(dst++) = r;
+		}
+	}
+
+	chan->fmt = AUDIO_S16SYS;
+}
+
+#define S32_TO_F32(v) (v / (float)0x80000000)
+static void loadChannelS32(struct AudioChannel *chan, struct SDL_AudioSpec *spec, int32_t *data, uint32_t len) {
+	uint32_t frames = len / sizeof(int32_t) / spec->channels;
+	chan->length = frames * 2;
+	if (spec->freq == FREQUENCY / 2)
+		chan->length *= 2;
+
+	chan->data = globalAlloc(chan->length * sizeof(float));
+	int16_t *dst = (int16_t *)chan->data;
+
+	for (uint32_t i = 0; i < frames; i++) {
+		float l, r;
+		if (spec->channels == 2) {
+			l = data[i * 2];
+			r = data[i * 2 + 1];
+		} else {
+			l = r = data[i];
+		}
+		*(dst++) = S32_TO_F32(l);
+		*(dst++) = S32_TO_F32(r);
+
+		if (spec->freq == FREQUENCY / 2) {
+			if (i != frames - 1) {
+				if (spec->channels == 2) {
+					l = (l + data[i * 2 + 2]) / 2;
+					r = (r + data[i * 2 + 3]) / 2;
+				} else {
+					l = r = (l + data[i + 1]) / 2;
+				}
+			}
+			*(dst++) = S32_TO_F32(l);
+			*(dst++) = S32_TO_F32(l);
+		}
+	}
+
+	chan->fmt = AUDIO_F32;
 }
 
 
@@ -221,46 +298,27 @@ void audioLoadSFX(int channel, const char *name) {
 		goto close_asset;
 	}
 
-	if (spec.format != AUDIO_S16SYS || spec.channels > 2 ||
-		(spec.freq != FREQUENCY && spec.freq != FREQUENCY / 2)) {
-		logError("Failed to load SFX: %s, invalid audio format (must be signed 16-bit, mono or stereo, 44.1 or 22.05kHz)\n", name);
+	if (spec.channels > 2) {
+		logError("Failed to load SFX: %s, invalid number of channels\n", name);
+		goto free_wav;
+	}
+	if (spec.freq != FREQUENCY && spec.freq != FREQUENCY / 2) {
+		logError("Failed to load SFX: %s, invalid frequency (must be 44.1 or 22.05kHz)\n", name);
 		goto free_wav;
 	}
 
-	uint32_t frames = len / sizeof(int16_t) / spec.channels;
-	chan->length = frames * 2;
-	if (spec.freq == FREQUENCY / 2)
-		chan->length *= 2;
+	switch (spec.format) {
+	case AUDIO_S16SYS:
+		loadChannelS16(chan, &spec, (int16_t *)data, len);
+		break;
+	case AUDIO_S32SYS:
+		loadChannelS32(chan, &spec, (int32_t *)data, len);
+		break;
 
-	chan->data = globalAlloc(chan->length * sizeof(int16_t));
-	int16_t *dst = (int16_t *)chan->data;
-
-	for (uint32_t i = 0; i < frames; i++) {
-		int32_t l, r;
-		if (spec.channels == 2) {
-			l = ((int16_t *)data)[i * 2];
-			r = ((int16_t *)data)[i * 2 + 1];
-		} else {
-			l = r = ((int16_t *)data)[i];
-		}
-		*(dst++) = l;
-		*(dst++) = r;
-
-		if (spec.freq == FREQUENCY / 2) {
-			if (false && i != frames - 1) {
-				if (spec.channels == 2) {
-					l = (l + ((int16_t *)data)[i * 2 + 2]) / 2;
-					r = (r + ((int16_t *)data)[i * 2 + 3]) / 2;
-				} else {
-					l = r = (l + ((int16_t *)data)[i + 1]) / 2;
-				}
-			}
-			*(dst++) = l;
-			*(dst++) = r;
-		}
+	default:
+		logError("Failed to load SFX: %s, invalid sample format\n", name);
+		break;
 	}
-	
-	chan->fmt = AUDIO_S16SYS;
 
 	free_wav:
 	SDL_FreeWAV(data);
