@@ -5,6 +5,9 @@
 #include <SDL2/SDL.h>
 #include <vec.h>
 
+/* Eeeew */
+#include "stb_vorbis.c"
+
 #define FREQUENCY 44100
 #define MAX_SFX_SOURCES 64
 
@@ -22,8 +25,12 @@ struct AudioChannel {
 
 static struct AudioChannel sfxChannels[N_AUDIO_CHANNELS];
 
-static struct Asset* musicAsset;
-struct AudioChannel musicChannel;
+static struct Asset *musicAsset;
+static struct AudioChannel musicChannel;
+static stb_vorbis *musicVorbis;
+static stb_vorbis_info musicVorbisInfo;
+static uint32_t musicPos, musicLength;
+static uint32_t musicLoopStart, musicLoopEnd;
 
 static int sfxVol;
 static int musVol;
@@ -33,10 +40,10 @@ static SDL_AudioDeviceID audioDeviceID;
 static float *audioAccum;
 static uint32_t audioAccumSamples;
 
-static uint32_t addChannelSamplesS16(struct AudioChannel *chan, float masterVolume) {
+static uint32_t addChannelSamplesS16(const struct AudioChannel *chan, float masterVolume) {
 	/* Evil floating point hacking here, beware of dragons */
 	int16_t *src = (int16_t *)chan->data + chan->sample;
-	uint32_t srcLen = (chan->length - chan->sample) & ~1; /* Make sure it's an even number */
+	uint32_t srcLen = chan->length - chan->sample;
 	uint32_t s = 0;
 
 	float vLeft = masterVolume * chan->left;
@@ -77,10 +84,10 @@ static uint32_t addChannelSamplesS16(struct AudioChannel *chan, float masterVolu
 	return s;
 }
 
-static uint32_t addChannelSamplesF32(struct AudioChannel *chan, float masterVolume) {
+static uint32_t addChannelSamplesF32(const struct AudioChannel *chan, float masterVolume) {
 	/* Much simpler version of the above */
 	float *src = (int16_t *)chan->data + chan->sample;
-	uint32_t srcLen = (chan->length - chan->sample) & ~1; /* Make sure it's an even number */
+	uint32_t srcLen = chan->length - chan->sample;
 	uint32_t s = 0;
 
 	float vLeft = masterVolume * chan->left;
@@ -106,9 +113,39 @@ static uint32_t addChannelSamplesF32(struct AudioChannel *chan, float masterVolu
 }
 
 static void audioCallback(void *userData, Uint8 *finalStream, int streamLength) {
-	memset(audioAccum, 0, audioSpec.samples * 8);
+	memset(audioAccum, 0, audioAccumSamples * sizeof(float));
+	float musV = musVol / 255.0f;
 	float sfxV = sfxVol / 255.0f;
 
+	if (musicChannel.play) {
+		/* Might want to put the decode in a seperate thread in the future but this will work for now */
+		musicChannel.length = audioAccumSamples;
+		if (musicLoopEnd && musicPos + musicChannel.length >= musicLoopEnd) {
+			/* We're crossing the loop point */
+			uint32_t len1 = musicLoopEnd - musicPos;
+			if (len1)
+				stb_vorbis_get_samples_float_interleaved(musicVorbis, 2, (float *)musicChannel.data, len1);
+
+			stb_vorbis_seek(musicVorbis, musicLoopStart);
+			uint32_t len2 = musicChannel.length - len1;
+			if (len2)
+				stb_vorbis_get_samples_float_interleaved(musicVorbis, 2, ((float *)musicChannel.data) + len1, len2);
+
+			musicPos = musicLoopStart + len2;
+		} else {
+			if (!musicLoopEnd && musicPos + musicChannel.length >= musicLength) {
+				musicChannel.length = musicLength - musicPos;
+				musicChannel.play = false;
+			}
+			stb_vorbis_get_samples_float_interleaved(musicVorbis, 2, (float *)musicChannel.data, musicChannel.length);
+			musicPos += musicChannel.length;
+		}
+
+		musicChannel.sample = 0;
+		addChannelSamplesF32(&musicChannel, musV);
+	}
+
+	/* SFX */
 	for (int curChannel = 0; curChannel < N_AUDIO_CHANNELS; curChannel++) {
 		struct AudioChannel *chan = &sfxChannels[curChannel];
 		if (!chan->play)
@@ -128,6 +165,7 @@ static void audioCallback(void *userData, Uint8 *finalStream, int streamLength) 
 			chan->play = false;
 	}
 	
+	/* Store accum into finalStream with clipping and conversion */
 	m128 vMin = _mm_set1_ps(-1);
 	m128 vMax = _mm_set1_ps(1);
 	if (audioSpec.format == AUDIO_F32) {
@@ -228,8 +266,39 @@ static void loadChannelS32(struct AudioChannel *chan, struct SDL_AudioSpec *spec
 /* Music */
 
 void audioStartMusic(const char *name) {
-	
+	audioStopMusic();
+	musicAsset = assetOpen(name);
+	if (!musicAsset) {
+		logError("Cannot find music file %s\n", name);
+		return;
+	}
+
+	int err;
+	musicVorbis = stb_vorbis_open_memory(musicAsset->buffer, musicAsset->bufferSize, &err, NULL);
+	if (!musicVorbis) {
+		logError("Failed to open music file %s: vorbis error %d\n", name, err);
+		goto close_asset;
+	}
+	musicVorbisInfo = stb_vorbis_get_info(musicVorbis);
+	if (musicVorbisInfo.channels != 2 || musicVorbisInfo.sample_rate != FREQUENCY) {
+		logError("Failed to open music file %s: Invalid channel count or sample rate", name);
+		goto close_vorbis;
+	}
+
+	musicPos = 0;
+	musicLength = stb_vorbis_stream_length_in_samples(musicVorbis);
+	musicLoopEnd = 0;
+	musicLoopStart = 0;
+	musicChannel.play = true;
 	loadUpdatePoll();
+	return;
+
+close_vorbis:
+	stb_vorbis_close(musicVorbis);
+	musicVorbis = NULL;
+close_asset:
+	assetClose(musicAsset);
+	musicAsset = NULL;
 }
 
 void audioStopMusic(void) {
@@ -363,9 +432,17 @@ void audioInit(void) {
 	audioAccumSamples = audioSpec.samples * 2; /* stereo */
 	audioAccum = globalAlloc(audioAccumSamples * sizeof(float));
 
+	/* Allocate decode buffer for music */
+	musicChannel.data = globalAlloc(audioAccumSamples * sizeof(float));
+	musicChannel.length = audioAccumSamples;
+	musicChannel.left = musicChannel.right = 1.0f;
+	musicChannel.fmt = AUDIO_F32;
+
 	/* Unpause */
 	SDL_PauseAudioDevice(audioDeviceID, 0);
 }
 
 void audioFini(void) {
+	SDL_PauseAudioDevice(audioDeviceID, 1);
+	SDL_CloseAudioDevice(audioDeviceID);
 }
